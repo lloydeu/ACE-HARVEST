@@ -1,0 +1,52 @@
+import serial
+import time
+
+def send_sms(phone_number, message):
+    # Air780E usually uses /dev/ttyUSB2 for AT commands
+    port = "/dev/ttyUSB2" 
+    baud = 115200
+
+    try:
+        ser = serial.Serial(port, baud, timeout=5)
+        print(f"Connecting to {port}...")
+        time.sleep(1)
+
+        # 1. Set SMS to Text Mode
+        ser.write(b'AT+CMGF=1\r')
+        time.sleep(1)
+        
+        # 2. Set the recipient number
+        # Format: AT+CMGS="+1234567890"
+        command = f'AT+CMGS="{phone_number}"\r'
+        ser.write(command.encode())
+        time.sleep(1)
+
+        # 3. Send the message body
+        ser.write(message.encode())
+        time.sleep(1)
+
+        # 4. Send Ctrl+Z (ASCII 26) to finish and send
+        ser.write(bytes([26]))
+        time.sleep(2)
+
+        # Read response
+        response = ser.read(ser.in_waiting).decode()
+        print("Response from Module:")
+        print(response)
+
+        if "OK" in response or "+CMGS:" in response:
+            print("Successfully sent!")
+        else:
+            print("Failed to send. Check signal or SIM balance.")
+
+        ser.close()
+
+    except Exception as e:
+        print(f"Error: {e}")
+
+# --- Usage ---
+# Replace with your actual target number and message
+dest_number = "+1234567890" 
+text_body = "Hello from my Raspberry Pi 4 and Air780E!"
+
+send_sms(dest_number, text_body)
