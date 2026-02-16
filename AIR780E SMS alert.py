@@ -7,30 +7,30 @@ def send_sms(phone_number, message):
     baud = 115200
 
     try:
-        ser = serial.Serial(port, baud, timeout=5)
+        usb_serial = serial.Serial(port, baud, timeout=5)
         print(f"Connecting to {port}...")
         time.sleep(1)
 
         # 1. Set SMS to Text Mode
-        ser.write(b'AT+CMGF=1\r')
+        usb_serial.write(b'AT+CMGF=1\r')
         time.sleep(1)
         
         # 2. Set the recipient number
         # Format: AT+CMGS="+1234567890"
         command = f'AT+CMGS="{phone_number}"\r'
-        ser.write(command.encode())
+        usb_serial.write(command.encode())
         time.sleep(1)
 
         # 3. Send the message body
-        ser.write(message.encode())
+        usb_serial.write(message.encode())
         time.sleep(1)
 
         # 4. Send Ctrl+Z (ASCII 26) to finish and send
-        ser.write(bytes([26]))
+        usb_serial.write(bytes([26]))
         time.sleep(2)
 
         # Read response
-        response = ser.read(ser.in_waiting).decode()
+        response = usb_serial.read(usb_serial.in_waiting).decode()
         print("Response from Module:")
         print(response)
 
@@ -39,7 +39,7 @@ def send_sms(phone_number, message):
         else:
             print("Failed to send. Check signal or SIM balance.")
 
-        ser.close()
+        usb_serial.close()
 
     except Exception as e:
         print(f"Error: {e}")

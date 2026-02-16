@@ -1,12 +1,10 @@
 import time
-import os
-
 import RPi.GPIO as GPIO
 
 class WaterLevelSensor:
     def __init__(self, channel):
         self.channel = channel
-        GPIO.setmode(GPIO.BCM)
+        GPIO.setmode(GPIO.BOARD)
         GPIO.setup(self.channel, GPIO.IN)
     
     def read_level(self):
@@ -26,8 +24,8 @@ def main():
             level = sensor.read_level()
             if level == 1:
                 print("Water Detected!")
-                # Play sound alert
-                os.system('aplay /path/to/sound_alert.wav')
+                # Send SMS Alert
+                
             else:
                 print("No Water Detected")
             time.sleep(1)  # Read every second
