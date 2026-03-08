@@ -1,4 +1,10 @@
 # usb_serial_bidirectional.py
+"""
+Bidirectional USB Serial Communication
+- RPi4 Top can READ sensor data
+- RPi4 Top can WRITE motor/servo/relay commands
+- Pico executes commands and reports status
+"""
 
 import sys
 import ujson
@@ -62,7 +68,7 @@ class USBBidirectional:
         WRITE COMMANDS (Actuator Control):
         - SET_MOTOR motor_id speed: Set motor speed (-100 to 100)
         - SET_SERVO servo_id angle: Set servo angle (0-180)
-        - SET_RELAY relay_num state: Set relay (1/2, 0/1)
+        - SET_LIGHT left|right on|off: Control lights
         - STOP_ALL: Emergency stop all motors
         - RESET_ERROR: Clear system error
         
@@ -98,9 +104,9 @@ class USBBidirectional:
                             "mg996_6": state["servo_mg996_6_deg"],
                         },
                         "motors": state["motor_speeds"],
-                        "relays": {
-                            "relay_1": state["relay_1"],
-                            "relay_2": state["relay_2"]
+                        "lights": {
+                            "left": state["relay_left_light"],
+                            "right": state["relay_right_light"]
                         }
                     },
                     "system": {
@@ -139,7 +145,7 @@ class USBBidirectional:
             
             # ==================== WRITE COMMANDS ====================
             elif cmd == "SET_MOTOR":
-                # SET_MOTOR linear_actuator 50
+                # SET_MOTOR worm_gear_arm 50
                 if len(parts) < 3:
                     self.send_response({"cmd": "ERROR", "message": "Usage: SET_MOTOR motor_id speed"})
                     return
@@ -189,25 +195,34 @@ class USBBidirectional:
                 else:
                     self.send_response({"cmd": "ERROR", "message": f"Unknown servo: {servo_id}"})
             
-            elif cmd == "SET_RELAY":
-                # SET_RELAY 1 1
+            elif cmd == "SET_LIGHT":
+                # SET_LIGHT left on
+                # SET_LIGHT right off
                 if len(parts) < 3:
-                    self.send_response({"cmd": "ERROR", "message": "Usage: SET_RELAY relay_num state"})
+                    self.send_response({"cmd": "ERROR", "message": "Usage: SET_LIGHT left|right on|off"})
                     return
                 
-                relay_num = parts[1]
-                relay_state = parts[2] in ['1', 'true', 'True', 'on', 'ON']
+                light_side = parts[1].lower()
+                light_state = parts[2].lower() in ['1', 'true', 'on']
                 
-                if relay_num in ['1', '2']:
-                    state[f"relay_{relay_num}"] = relay_state
+                if light_side == "left":
+                    state["relay_left_light"] = light_state
                     self.send_response({
-                        "cmd": "RELAY_SET",
-                        "relay": relay_num,
-                        "state": relay_state,
+                        "cmd": "LIGHT_SET",
+                        "light": "left",
+                        "state": light_state,
+                        "status": "ok"
+                    })
+                elif light_side == "right":
+                    state["relay_right_light"] = light_state
+                    self.send_response({
+                        "cmd": "LIGHT_SET",
+                        "light": "right",
+                        "state": light_state,
                         "status": "ok"
                     })
                 else:
-                    self.send_response({"cmd": "ERROR", "message": "Invalid relay number (use 1 or 2)"})
+                    self.send_response({"cmd": "ERROR", "message": "Invalid light (use 'left' or 'right')"})
             
             elif cmd == "STOP_ALL":
                 # Emergency stop - kill all motors

@@ -23,15 +23,15 @@ SERVO_PINS = {
 }  # {"servo_id": pin}
 
 MOTOR_PINS = {
-    "linear_actuator": [4, 5],
-    "worm_gear_arm": [6, 7],
-    "worm_gear_clamp": [8, 9],
-    "worm_gear_cup": [10, 11]
+    "worm_gear_arm": [4, 5],
+    "worm_gear_clamp": [6, 7],
+    "linear_actuator": [8, 9],
+    "vacuum_pump": [10, 11]
 }  # {"motor_id": [f_pin, r_pin]}
 
 # Actuators (Digital)
-PIN_RELAY_1 = 12
-PIN_RELAY_2 = 13
+PIN_RELAY_LEFT_LIGHT = 12   # Relay 1 - Left Light
+PIN_RELAY_RIGHT_LIGHT = 13  # Relay 2 - Right Light
 
 """ CONSTANTS """
 # Pressure (HX-710B)
@@ -56,12 +56,29 @@ SERVO_FREQUENCY = 50
 STALL_THRESHOLD = 5.0      # Amps to trigger stall detection
 STALL_DELAY_TICKS = 15     # 150ms buffer to ignore inrush current spikes
 
+# Motor Safety Rules
+# - Only ONE motor at a time (prevents power overload)
+# - EXCEPTION: vacuum_pump can run simultaneously with any other motor
+# - Stall detection only on motors with current sensors
+
+# Motor-Specific Current Monitoring
+# Map which current sensor monitors which motor
+MOTOR_CURRENT_MAP = {
+    "worm_gear_arm": "current_amps_1",      # Sensor 1 monitors arm
+    "linear_actuator": "current_amps_2",    # Sensor 2 monitors actuator
+    # "worm_gear_clamp": None,              # No stall detection
+    # "vacuum_pump": None,                  # No stall detection
+}
+
 """ GLOBAL STATES """
 state = {
+    # Sensors
     "pressure_kpa": 0.0,
     "current_amps_1": 0.0,
     "current_amps_2": 0.0,
     "ph_level": 7.0,
+    
+    # Servos
     "servo_sg90_deg": 90,
     "servo_mg996_1_deg": 90,
     "servo_mg996_2_deg": 90,
@@ -69,9 +86,15 @@ state = {
     "servo_mg996_4_deg": 90,
     "servo_mg996_5_deg": 90,
     "servo_mg996_6_deg": 90,
-    "motor_speeds": {motor_id: 0 for motor_id in MOTOR_PINS.keys()},  # -100 to 100
-    "relay_1": False,
-    "relay_2": False,
+    
+    # Motors (-100 to 100)
+    "motor_speeds": {motor_id: 0 for motor_id in MOTOR_PINS.keys()},
+    
+    # Relays
+    "relay_left_light": False,
+    "relay_right_light": False,
+    
+    # System
     "system_error": None,
     "is_calibrating": False
 }

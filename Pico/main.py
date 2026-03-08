@@ -17,8 +17,8 @@ ph_sensor = PH4502C(config.PIN_PH4502C_ADC)
 ph_filter = MovingAverage(10)
 
 # Output devices
-relay_1 = Relay(config.PIN_RELAY_1)
-relay_2 = Relay(config.PIN_RELAY_2)
+relay_left_light = Relay(config.PIN_RELAY_LEFT_LIGHT)
+relay_right_light = Relay(config.PIN_RELAY_RIGHT_LIGHT)
 
 motors = {motor_id: Motor(pins[0], pins[1], config.MOTOR_FREQUENCY) for motor_id, pins in config.MOTOR_PINS.items()}
 servos = {servo_id: Servo(pin, config.SERVO_FREQUENCY) for servo_id, pin in config.SERVO_PINS.items()}
@@ -67,35 +67,42 @@ async def ph_task():
         
 async def relay_task():
     while True:
-        relay_1.set_state(config.state["relay_1"])
-        relay_2.set_state(config.state["relay_2"])
+        relay_left_light.set_state(config.state["relay_left_light"])
+        relay_right_light.set_state(config.state["relay_right_light"])
         
         await asyncio.sleep_ms(100)
 
 async def motor_guard():
     """
     Motor safety guard with alerts sent to RPi4 Top
+    
+    Rules:
+    1. Only one motor at a time (EXCEPT vacuum_pump can run with others)
+    2. Stall detection for worm_gear_arm and linear_actuator
     """
     stall_timers = {motor_id: 0 for motor_id in motors.keys()}
     
     while True:
-        # Get active motors
-        requested = [motor_id for motor_id, speed in config.state["motor_speeds"].items() if speed != 0]
+        # Get active motors (excluding vacuum_pump from conflict check)
+        all_active = [motor_id for motor_id, speed in config.state["motor_speeds"].items() if speed != 0]
+        requested = [motor_id for motor_id in all_active if motor_id != "vacuum_pump"]
 
-        # Rule 1: Only one motor at a time
+        # Rule 1: Only one motor at a time (vacuum_pump exempt)
         if len(requested) > 1:
-            for motor_id in config.state["motor_speeds"]: 
+            # Stop the conflicting motors (but keep vacuum_pump running)
+            for motor_id in requested: 
                 config.state["motor_speeds"][motor_id] = 0
             config.state["system_error"] = "CONFLICT"
             # Alert RPi4 Top about conflict
             usb.send_alert("CONFLICT", "Multiple motors requested simultaneously", "error")
 
-        # Rule 2: Stall detection for the 2 specific motors
+        # Rule 2: Stall detection for monitored motors
         active = requested[0] if len(requested) == 1 else None
         
-        if active in ["linear_actuator", "worm_gear_arm"]:
-            # Map Sensor 1 to Actuator, Sensor 2 to Arm
-            current = config.state["current_amps_1"] if active == "linear_actuator" else config.state["current_amps_2"]
+        if active and active in config.MOTOR_CURRENT_MAP:
+            # Get the current sensor reading for this motor
+            sensor_name = config.MOTOR_CURRENT_MAP[active]
+            current = config.state[sensor_name]
             
             if current > config.STALL_THRESHOLD:
                 stall_timers[active] += 1
