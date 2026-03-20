@@ -27,11 +27,18 @@ class JoystickInput:
             self.chan_y = AnalogIn(self.mcp, 1)
             print("✓ Analog Joystick (MCP3008)")
         else:
-            self.joystick = None
+            # FIX #7: chan_x / chan_y were never defined when SPI_AVAILABLE is False,
+            # causing AttributeError on the first read() call in analog mode.
+            # Set them to None so read() can guard against missing hardware gracefully.
+            self.chan_x = None
+            self.chan_y = None
+            if mode == 'analog':
+                print("⚠️  Analog joystick requested but SPI/MCP3008 not available — inputs zeroed")
     
     def read(self):
         """Read joystick state"""
-        if self.mode == 'analog':
+        # FIX #7: Guard added — only attempt hardware read if channels were successfully init'd
+        if self.mode == 'analog' and self.chan_x is not None and self.chan_y is not None:
             try:
                 x_raw = self.chan_x.value
                 y_raw = self.chan_y.value
@@ -45,5 +52,3 @@ class JoystickInput:
                 pass
         
         return {'x': self.x_axis, 'y': self.y_axis, 'buttons': self.buttons}
-    
-    

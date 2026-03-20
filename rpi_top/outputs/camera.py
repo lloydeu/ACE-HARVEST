@@ -1,5 +1,6 @@
 """Camera Output - GStreamer Video Streaming"""
 import subprocess
+import threading
 from config import config
 
 class CameraOutput:
@@ -9,6 +10,7 @@ class CameraOutput:
         self.host = host
         self.port = port
         self.process = None
+        self._log_thread = None
     
     def start(self):
         """Start GStreamer pipeline"""
@@ -17,7 +19,6 @@ class CameraOutput:
         fps = config.get('camera_fps')
         bitrate = config.get('camera_bitrate')
         
-        # Use libcamera-vid instead of libcamerasrc (works on RPi OS)
         pipeline = [
             'gst-launch-1.0',
             'libcamerasrc',
@@ -30,29 +31,51 @@ class CameraOutput:
             'config-interval=1',
             '!', 'udpsink',
             f'host={self.host}',
-            f'port={self.port}']      
+            f'port={self.port}',
+        ]
+
         print("GStreamer pipeline:")
         print(" ".join(pipeline))
- 
+
         try:
+            # FIX #3: stderr was piped and read in a blocking for-loop inside start(),
+            # which prevented start() from ever returning True.
+            # Now stderr is read in a background daemon thread so start() returns immediately.
             self.process = subprocess.Popen(
                 pipeline,
-                stdout=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
                 text=True,
-  		bufsize=1
+                bufsize=1,
             )
-            for line in self.process.stderr:
-                print(f"GStreamer: {line.strip()}")
+
+            # Log GStreamer output without blocking
+            self._log_thread = threading.Thread(
+                target=self._log_stderr,
+                daemon=True,
+                name="CameraLog",
+            )
+            self._log_thread.start()
 
             return True
         except Exception as e:
             print(f"Camera start failed: {e}")
             return False
-    
+
+    def _log_stderr(self):
+        """Background thread: drain and print GStreamer stderr"""
+        try:
+            for line in self.process.stderr:
+                print(f"GStreamer: {line.rstrip()}")
+        except Exception:
+            pass
+
     def stop(self):
         """Stop streaming"""
         if self.process:
             self.process.terminate()
-            self.process.wait(timeout=5)
+            try:
+                self.process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
             self.process = None

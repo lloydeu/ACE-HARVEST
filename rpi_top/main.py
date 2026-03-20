@@ -135,14 +135,17 @@ class TopController:
                 # Relay commands from Bottom
                 elif event_type == 'relay_control':
                     relay_id = event.get('relay_id')
-                    state_on = event.get('state')
-                    self.pico.set_relay(relay_id, state_on)
+                    relay_on = event.get('state')
+                    self.pico.set_relay(relay_id, relay_on)
                 
                 # Easy relay commands from Bottom
                 elif event_type == 'relay_cmd':
                     cmd = event.get('cmd')
-                    state = event.get('state')
-                    self.handle_relay_command(cmd, state)
+                    # FIX #4: was `state = event.get('state')` which shadowed the
+                    # module-level `state` dict, corrupting it for all subsequent accesses
+                    # in this thread. Renamed to `relay_on`.
+                    relay_on = event.get('state')
+                    self.handle_relay_command(cmd, relay_on)
                 
                 elif event_type == 'emergency_stop':
                     print("🚨 EMERGENCY STOP from Bottom")
@@ -230,7 +233,7 @@ class TopController:
             servo_id = servo_map[servo_idx]
             self.pico.set_servo(servo_id, angle)
     
-    def handle_relay_command(self, cmd, state_on):
+    def handle_relay_command(self, cmd, relay_on):
         """Translate relay commands to Pico commands"""
         relay_map = {
             'RELAY_LIGHTS_TOGGLE': 'lights',
@@ -239,7 +242,7 @@ class TopController:
         
         if cmd in relay_map:
             relay_id = relay_map[cmd]
-            self.pico.set_relay(relay_id, state_on)
+            self.pico.set_relay(relay_id, relay_on)
     
     def start(self):
         """Start all subsystems"""

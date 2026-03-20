@@ -192,36 +192,37 @@ class DisplayOutput:
     def camera_receiver_thread(self):
         """Thread to receive and decode H264 RTP stream"""
         try:
-            # GStreamer pipeline to receive and decode
+            # FIX #5: Original pipeline used 'autovideosink' which renders to a display window
+            # and writes nothing to stdout — so process.stdout.read() always returned empty bytes.
+            # Fixed pipeline decodes H264 → RGB raw frames → stdout via fdsink,
+            # which PIL can then read and render into the Tkinter label.
             pipeline = [
                 'gst-launch-1.0', '-q', '-e',
                 'udpsrc', f'port={self.video_port}',
                 'caps=application/x-rtp,media=video,clock-rate=90000,encoding-name=H264',
                 '!', 'rtph264depay',
-              
                 '!', 'avdec_h264',
-                
-                '!', 'autovideosink', 'sync=false'
+                '!', 'videoconvert',
+                '!', 'video/x-raw,format=RGB,width=640,height=480',
+                '!', 'fdsink', 'fd=1',
             ]
-            
-            # Start process
+
+            # Start process — stdout carries raw RGB frames, stderr discarded
             process = subprocess.Popen(
                 pipeline,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
-                bufsize=0
+                bufsize=0,
             )
             
             self.camera_process = process
-            for line in process.stderr:
-                print(f"GStreamer: {line.strip()}")
 
-            # Frame size (640x480 RGB)
+            # Frame size: 640 × 480 × 3 bytes (RGB)
             frame_size = 640 * 480 * 3
             
             while self.camera_running and self.running:
                 try:
-                    # Read frame from stdout
+                    # Read one full raw RGB frame from stdout
                     data = process.stdout.read(frame_size)
                     
                     if len(data) == frame_size and PIL_AVAILABLE:
@@ -232,11 +233,11 @@ class DisplayOutput:
                         img = img.resize((self.camera_width, self.camera_height),
                                         Image.Resampling.LANCZOS)
                         
-                        # Convert to PhotoImage
+                        # Convert to PhotoImage (must be created on the thread that will use it)
                         self.camera_photo = ImageTk.PhotoImage(img)
                         self.frame_ready = True
                         
-                        # Update UI
+                        # Schedule UI update on main thread
                         self.root.after(0, self.update_camera_image)
                     
                 except Exception as e:
@@ -250,10 +251,10 @@ class DisplayOutput:
                 self.camera_process.terminate()
     
     def update_camera_image(self):
-        """Update camera image in UI"""
+        """Update camera image in UI (called on main thread via root.after)"""
         if self.frame_ready and self.camera_photo:
             self.camera_label.configure(image=self.camera_photo, text="")
-            self.camera_label.image = self.camera_photo
+            self.camera_label.image = self.camera_photo  # Keep reference to prevent GC
             self.frame_ready = False
     
     def stop_camera(self):
@@ -306,23 +307,23 @@ class DisplayOutput:
         self.add_event({'type': 'toggle_overlay'})
     
     def add_event(self, event):
-        """Add event to queue"""
+        """Add event to queue (thread-safe)"""
         with self.event_lock:
             self.event_queue.append(event)
     
     def get_events(self):
-        """Get pending events"""
+        """Get and clear pending events (thread-safe)"""
         with self.event_lock:
             events = self.event_queue.copy()
             self.event_queue.clear()
             return events
     
     def handle_events(self):
-        """Get UI events (called from main thread)"""
+        """Get UI events (called from background thread)"""
         return self.get_events()
     
     def update_ui(self):
-        """Update UI periodically"""
+        """Update UI periodically (runs on main Tk thread via after())"""
         if not self.running:
             return
         
@@ -369,11 +370,11 @@ class DisplayOutput:
             print(f"UI update error: {e}")
     
     def update(self, new_state):
-        """Update display with new state (called from main thread)"""
+        """Update display with new state (called from background thread — just copies dict)"""
         self.current_state = new_state.copy()
     
     def run(self):
-        """Run main loop"""
+        """Run Tk main loop (must be called from the main thread)"""
         if self.enabled:
             try:
                 self.root.mainloop()

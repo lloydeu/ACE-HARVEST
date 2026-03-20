@@ -68,7 +68,7 @@ class USBBidirectional:
         WRITE COMMANDS (Actuator Control):
         - SET_MOTOR motor_id speed: Set motor speed (-100 to 100)
         - SET_SERVO servo_id angle: Set servo angle (0-180)
-        - SET_LIGHT left|right on|off: Control lights
+        - SET_RELAY lights|solenoid on|off: Control relays
         - STOP_ALL: Emergency stop all motors
         - RESET_ERROR: Clear system error
         
@@ -104,9 +104,12 @@ class USBBidirectional:
                             "mg996_6": state["servo_mg996_6_deg"],
                         },
                         "motors": state["motor_speeds"],
-                        "lights": {
-                            "left": state["relay_left_light"],
-                            "right": state["relay_right_light"]
+                        # FIX #6: was state["relay_left_light"] / state["relay_right_light"]
+                        # which don't exist in config.py state dict → KeyError on every GET_STATE call.
+                        # Now matches the actual state keys: relay_lights and relay_valve.
+                        "relays": {
+                            "lights": state["relay_lights"],
+                            "valve": state["relay_valve"]
                         }
                     },
                     "system": {
@@ -167,7 +170,7 @@ class USBBidirectional:
                         "status": "ok"
                     })
                 else:
-                    self.send_response({"cmd": "ERROR", "message": f"Unknown motor: {motor_id}"})
+                    self.send_response({"cmd": "ERROR", "message": "Unknown motor: {}".format(motor_id)})
             
             elif cmd == "SET_SERVO":
                 # SET_SERVO mg996_1 90
@@ -183,7 +186,7 @@ class USBBidirectional:
                     self.send_response({"cmd": "ERROR", "message": "Invalid angle value"})
                     return
                 
-                state_key = f"servo_{servo_id}_deg"
+                state_key = "servo_{}_deg".format(servo_id)
                 if state_key in state:
                     state[state_key] = angle
                     self.send_response({
@@ -193,7 +196,7 @@ class USBBidirectional:
                         "status": "ok"
                     })
                 else:
-                    self.send_response({"cmd": "ERROR", "message": f"Unknown servo: {servo_id}"})
+                    self.send_response({"cmd": "ERROR", "message": "Unknown servo: {}".format(servo_id)})
             
             elif cmd == "SET_RELAY":
                 # SET_RELAY lights on
@@ -214,7 +217,7 @@ class USBBidirectional:
                         "status": "ok"
                     })
                 elif relay_id == "solenoid":
-                    state["relay_solenoid"] = relay_state
+                    state["relay_valve"] = relay_state
                     self.send_response({
                         "cmd": "RELAY_SET",
                         "relay": "solenoid",
@@ -243,9 +246,6 @@ class USBBidirectional:
             
             # ==================== CALIBRATION COMMANDS ====================
             elif cmd == "CALIBRATE":
-                # CALIBRATE pressure_tare
-                # CALIBRATE ph_7_calibration
-                # CALIBRATE current_zero
                 if len(parts) < 2:
                     self.send_response({
                         "cmd": "ERROR",
@@ -270,18 +270,16 @@ class USBBidirectional:
                 else:
                     self.send_response({
                         "cmd": "ERROR",
-                        "message": f"Unknown calibration type: {calib_type}"
+                        "message": "Unknown calibration type: {}".format(calib_type)
                     })
             
             elif cmd == "GET_CALIBRATION_RESULT":
-                # Check if calibration is complete
                 if state.get("calibration_result"):
                     self.send_response({
                         "cmd": "CALIBRATION_RESULT",
                         "result": state["calibration_result"],
                         "status": "ok"
                     })
-                    # Clear result after reading
                     state["calibration_result"] = None
                 elif state.get("is_calibrating"):
                     self.send_response({
@@ -305,7 +303,6 @@ class USBBidirectional:
                 })
             
             elif cmd == "GET_STATUS":
-                # Quick health check
                 self.send_response({
                     "cmd": "STATUS",
                     "system_error": state["system_error"],
@@ -316,13 +313,13 @@ class USBBidirectional:
             else:
                 self.send_response({
                     "cmd": "ERROR",
-                    "message": f"Unknown command: {cmd}"
+                    "message": "Unknown command: {}".format(cmd)
                 })
         
         except Exception as e:
             self.send_response({
                 "cmd": "ERROR",
-                "message": f"Command processing error: {str(e)}"
+                "message": "Command processing error: {}".format(str(e))
             })
 
 async def usb_bidirectional_task(usb_handler, state):
@@ -336,6 +333,3 @@ async def usb_bidirectional_task(usb_handler, state):
             usb_handler.process_command(cmd, state)
         
         await asyncio.sleep_ms(10)  # Check every 10ms for responsive control
-        
-        
-
