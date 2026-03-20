@@ -170,30 +170,35 @@ class PicoController:
         resp = self.send_command(f"SET_SERVO {servo_id} {angle}")
         return resp and resp.get('status') == 'ok'
     
-    # ========== LIGHT CONTROL METHODS ==========
+    # ========== RELAY CONTROL METHODS ==========
     
-    def set_light(self, light_side: str, state: bool) -> bool:
+    def set_light(self, state: bool) -> bool:
         """
         Set light state
         
         Args:
-            light_side: "left" or "right"
             state: True = ON, False = OFF
         
         Returns:
             True if successful
         """
         state_val = 'on' if state else 'off'
-        resp = self.send_command(f"SET_LIGHT {light_side} {state_val}")
+        resp = self.send_command(f"SET_LIGHT {state_val}")
         return resp and resp.get('status') == 'ok'
     
-    def set_left_light(self, state: bool) -> bool:
-        """Turn left light ON/OFF"""
-        return self.set_light("left", state)
-    
-    def set_right_light(self, state: bool) -> bool:
-        """Turn right light ON/OFF"""
-        return self.set_light("right", state)
+    def set_valve(self, state: bool) -> bool:
+        """
+        Set valve state
+        
+        Args:
+            state: True = OPEN, False = CLOSED
+        
+        Returns:
+            True if successful
+        """
+        state_val = 'on' if state else 'off'
+        resp = self.send_command(f"SET_VALVE {state_val}")
+        return resp and resp.get('status') == 'ok'
     
     # ========== SYSTEM METHODS ==========
     

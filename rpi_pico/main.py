@@ -1,8 +1,9 @@
 import config
+from machine import Pin
 from sensors import HX710B, ACS712, PH4502C
 from outputs import Relay, Motor, Servo
 from utils import MovingAverage
-from usb_serial_bidirectional import USBBidirectional, usb_bidirectional_task
+from communication import USBBidirectional, usb_bidirectional_task
 
 import utime, os, uasyncio as asyncio
 
@@ -13,7 +14,7 @@ current_sensor_1 = ACS712(config.PIN_ACS712_ADC_1)
 current_filter_1 = MovingAverage(50)
 current_sensor_2 = ACS712(config.PIN_ACS712_ADC_2)
 current_filter_2 = MovingAverage(50)
-ph_sensor = PH4502C(config.PIN_PH4502C_ADC)
+ph_sensor = PH4502C(config.PIN_PH_4502C_ADC)
 ph_filter = MovingAverage(10)
 
 # Output devices
@@ -25,6 +26,9 @@ servos = {servo_id: Servo(pin, config.SERVO_FREQUENCY) for servo_id, pin in conf
 
 # USB Bidirectional Communication with RPi4 Top
 usb = USBBidirectional()
+
+# Pico LED for Crash Diagnostic
+led = Pin("LED", Pin.OUT)
 
 async def pressure_task():
     while True:     
@@ -67,8 +71,8 @@ async def ph_task():
         
 async def relay_task():
     while True:
-        relay_lights.set_state(config.state["lights"])
-        relay_valve.set_state(config.state["valve"])
+        relay_lights.set_state(config.state["relay_lights"])
+        relay_valve.set_state(config.state["relay_valve"])
         
         await asyncio.sleep_ms(100)
 
@@ -264,20 +268,28 @@ async def calibration_task():
                 config.state["is_calibrating"] = False
         
         await asyncio.sleep_ms(100)
+        
+async def heartbeat():
+    while True:
+        led.toggle()
+        await asyncio.sleep_ms(1000)
 
 async def main():        
     await asyncio.gather(
-        motor_guard(),
-        pressure_task(),
-        current_task(),
-        ph_task(),
-        relay_task(),
-        motor_task(motors),
-        servo_task(servos),
-        calibration_task(),  # NEW: Calibration handler
-        usb_bidirectional_task(usb, config.state)  # Bidirectional communication with RPi4 Top
+        usb_bidirectional_task(usb, config.state), # connect to Rpi Top
+        heartbeat(), # detect crashes
+        motor_guard(), # one motor at a time to prevent overcurrent
+        pressure_task(), # measure pressure
+        current_task(), # measure current
+        ph_task(), # measure pH
+        relay_task(), # set relays based on state variables 
+        motor_task(motors), # set motors based on state variables
+        servo_task(servos), # set servos one at a time
+        calibration_task() # handles calibration when requested by Rpi Top
+       
+       
     )
-
+    
 if __name__ == "__main__":
     try:
         asyncio.run(main())

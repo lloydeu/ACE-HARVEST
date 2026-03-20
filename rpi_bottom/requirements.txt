@@ -1,0 +1,15 @@
+# Core dependencies
+pyserial>=3.5          # Air780E SMS module communication
+pillow>=10.0.0         # Image handling for camera feed
+numpy>=1.24.0          # Image processing support
+
+# Optional hardware interfaces
+RPi.GPIO>=0.7.0        # GPIO control for buttons, winch, sensors
+
+
+# MCP3008 analog joystick (optional)
+adafruit-blinka>=8.0.0
+adafruit-circuitpython-mcp3xxx>=3.3.0
+
+# System Packages
+# GStreamer, libcamera, python3-pil.imagetk

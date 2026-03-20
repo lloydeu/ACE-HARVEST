@@ -24,7 +24,7 @@ PIN_ACS712_ADC_1 = 26  # Monitors Motor Driver 1 (worm gears)
 PIN_ACS712_ADC_2 = 27  # Monitors Motor Driver 2 (linear actuator)
 
 # pH Level Sensor
-PIN_PH_SENSOR_ADC = 28
+PIN_PH_4502C_ADC = 28
 
 # ==================== SERVOS (Connected to Pico) ====================
 SERVO_PINS = {
@@ -44,26 +44,24 @@ SERVO_PINS = {
 # Controls: Worm Gear Motor Arm, Worm Gear Motor Clamp
 # Current monitored by ACS712 Sensor 1 (GPIO 26)
 MOTOR_DRIVER_1_PINS = {
-    "worm_gear_arm": [4, 5],      # Forward/Reverse pins
-    "worm_gear_clamp": [6, 7],    # Forward/Reverse pins
+    "worm_gear_arm": [4, 5],
+    "worm_gear_clamp": [6, 7],
 }
 
-# ==================== MOTOR DRIVER 2 (Connected to Pico) ====================
-# Controls: Linear Actuator, Vacuum Pump
-# Current monitored by ACS712 Sensor 2 (GPIO 27)
 MOTOR_DRIVER_2_PINS = {
-    "linear_actuator": [8, 9],    # Forward/Reverse pins
-    "vacuum_pump": [10, 11],      # Forward/Reverse pins (or just forward)
+    "linear_actuator": [8, 9],
+    "vacuum_pump": [10, 11],
 }
 
-# Combined motor dictionary
-MOTOR_PINS = {**MOTOR_DRIVER_1_PINS, **MOTOR_DRIVER_2_PINS}
-
+# Create an empty dict and update it with the contents of the others
+MOTOR_PINS = {}
+MOTOR_PINS.update(MOTOR_DRIVER_1_PINS)
+MOTOR_PINS.update(MOTOR_DRIVER_2_PINS)
 # ==================== 2 CHANNEL RELAY (Connected to Pico) ====================
 # Relay 1: Lights
 # Relay 2: Solenoid Valve
 PIN_RELAY_LIGHTS = 12        # Relay Channel 1 → Lighting System
-PIN_RELAY_SOLENOID = 13      # Relay Channel 2 → Solenoid Valve
+PIN_RELAY_VALVE = 13      # Relay Channel 2 → Solenoid Valve
 
 # ==================== SENSOR CONSTANTS ====================
 # Pressure Sensor (HX710B)
@@ -129,7 +127,7 @@ state = {
     
     # Relays (True = energized/ON)
     "relay_lights": False,
-    "relay_solenoid": False,  # Solenoid valve control
+    "relay_valve": False,  # Solenoid valve control
     
     # System status
     "system_error": None,
