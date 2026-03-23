@@ -4,8 +4,8 @@ import threading
 from config import config
 
 class CameraOutput:
-    """Stream camera to RPi Bottom via GStreamer"""
-    
+    """Stream camera to RPi Bottom via GStreamer — v4l2h264enc hardware encoder"""
+
     def __init__(self, host, port):
         self.host = host
         self.port = port
@@ -17,30 +17,32 @@ class CameraOutput:
         width = config.get('camera_width')
         height = config.get('camera_height')
         fps = config.get('camera_fps')
-        bitrate = config.get('camera_bitrate')
-        
+        bitrate = config.get('camera_bitrate', 2000000)
+
+        # FIX sender #1: config-interval=1 is a property of rtph264pay, not a
+        # standalone pipeline element — must be on the same token, not a separate
+        # list entry. The old code passed it as a new element name which caused
+        # a silent parse error and broken RTP packetization.
+        #
+        # v4l2h264enc: RPi hardware H264 encoder — low latency, low CPU.
+        # extra-controls sets I-frame interval and target bitrate via V4L2 API.
+        # Requires: gstreamer1.0-plugins-good (v4l2 plugin)
         pipeline = [
-            'gst-launch-1.0',
+            'gst-launch-1.0', '-e',
             'libcamerasrc',
             '!', f'video/x-raw,width={width},height={height},framerate={fps}/1',
             '!', 'videoconvert',
             '!', 'v4l2h264enc',
-            'extra-controls="controls,h264_i_frame_period=30,video_bitrate=2000000"',
+                 f'extra-controls="controls,h264_i_frame_period=30,video_bitrate={bitrate}"',
             '!', 'video/x-h264,level=(string)4,profile=(string)baseline',
-            '!', 'rtph264pay',
-            'config-interval=1',
-            '!', 'udpsink',
-            f'host={self.host}',
-            f'port={self.port}',
+            '!', 'rtph264pay config-interval=1',   # config-interval is a property here
+            '!', f'udpsink host={self.host} port={self.port}',
         ]
 
-        print("GStreamer pipeline:")
+        print("GStreamer sender pipeline:")
         print(" ".join(pipeline))
 
         try:
-            # FIX #3: stderr was piped and read in a blocking for-loop inside start(),
-            # which prevented start() from ever returning True.
-            # Now stderr is read in a background daemon thread so start() returns immediately.
             self.process = subprocess.Popen(
                 pipeline,
                 stdout=subprocess.DEVNULL,
@@ -49,7 +51,6 @@ class CameraOutput:
                 bufsize=1,
             )
 
-            # Log GStreamer output without blocking
             self._log_thread = threading.Thread(
                 target=self._log_stderr,
                 daemon=True,
@@ -66,7 +67,7 @@ class CameraOutput:
         """Background thread: drain and print GStreamer stderr"""
         try:
             for line in self.process.stderr:
-                print(f"GStreamer: {line.rstrip()}")
+                print(f"GStreamer[sender]: {line.rstrip()}")
         except Exception:
             pass
 

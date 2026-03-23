@@ -52,3 +52,4 @@ class JoystickInput:
                 pass
         
         return {'x': self.x_axis, 'y': self.y_axis, 'buttons': self.buttons}
+    
