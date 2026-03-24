@@ -25,18 +25,21 @@ class CameraOutput:
         # a silent parse error and broken RTP packetization.
         #
         # v4l2h264enc: RPi hardware H264 encoder — low latency, low CPU.
-        # extra-controls sets I-frame interval and target bitrate via V4L2 API.
-        # Requires: gstreamer1.0-plugins-good (v4l2 plugin)
+        # v4l2convert: keeps the pipeline in hardware path (libcamerasrc → NV12 → v4l2h264enc).
+        # videoconvert would also work but goes through software colorspace conversion.
+        # NOTE: each list element must be a single gst-launch token — Popen does NOT
+        # use a shell, so spaces inside an element are passed as one argument (parse error).
         pipeline = [
             'gst-launch-1.0', '-e',
             'libcamerasrc',
             '!', f'video/x-raw,width={width},height={height},framerate={fps}/1',
-            '!', 'videoconvert',
+            '!', 'v4l2convert',
+            '!', 'video/x-raw,format=NV12',
             '!', 'v4l2h264enc',
-                 f'extra-controls="controls,h264_i_frame_period=30,video_bitrate={bitrate}"',
+                 f'extra-controls=controls,h264_i_frame_period=30,video_bitrate={bitrate}',
             '!', 'video/x-h264,level=(string)4,profile=(string)baseline',
-            '!', 'rtph264pay config-interval=1',   # config-interval is a property here
-            '!', f'udpsink host={self.host} port={self.port}',
+            '!', 'rtph264pay', 'config-interval=1',
+            '!', 'udpsink', f'host={self.host}', f'port={self.port}',
         ]
 
         print("GStreamer sender pipeline:")
