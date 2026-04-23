@@ -6,8 +6,6 @@ RPi4 BOTTOM - Main System (Fixed for Tkinter)
 import time
 import threading
 from queue import Queue
-import json
-import os
 
 # Import all handlers
 from inputs import JoystickInput, ButtonInput, LiquidSensorInput
@@ -158,11 +156,18 @@ class BottomController:
                     current = config.get('display_overlay')
                     config.set('display_overlay', not current)
                 
-                # Motor controls
-                elif event_type == 'motor_control':
+                # Motor controls (HIGH-LEVEL)
+                elif event_type == 'motor_cmd':
                     cmd = event.get('cmd')
                     print(f"Motor: {cmd}")
                     self.top_client.send_command({'type': 'motor_cmd', 'cmd': cmd})
+                
+                # Motor controls (LOW-LEVEL direct speed)
+                elif event_type == 'motor_control':
+                    motor_id = event.get('motor_id')
+                    speed = event.get('speed')
+                    print(f"Motor direct: {motor_id}={speed}")
+                    self.top_client.send_command({'type': 'motor_control', 'motor_id': motor_id, 'speed': speed})
                 
                 # Servo controls
                 elif event_type == 'servo_control':
@@ -175,8 +180,8 @@ class BottomController:
                         'angle': angle
                     })
                 
-                # Relay controls
-                elif event_type == 'relay_control':
+                # Relay controls (HIGH-LEVEL)
+                elif event_type == 'relay_cmd':
                     cmd = event.get('cmd')
                     relay_state = event.get('state')
                     print(f"Relay: {cmd} = {relay_state}")
@@ -184,6 +189,17 @@ class BottomController:
                         'type': 'relay_cmd',
                         'cmd': cmd,
                         'state': relay_state
+                    })
+                
+                # Relay controls (LOW-LEVEL direct state)
+                elif event_type == 'relay_control':
+                    relay_id = event.get('relay_id')
+                    relay_on = event.get('state')
+                    print(f"Relay direct: {relay_id}={relay_on}")
+                    self.top_client.send_command({
+                        'type': 'relay_control',
+                        'relay_id': relay_id,
+                        'state': relay_on
                     })
                 
             except:

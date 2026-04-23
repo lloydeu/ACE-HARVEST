@@ -6,7 +6,6 @@ RPi4 TOP - Main System
 import time
 import threading
 from queue import Queue
-import json
 
 # Import all handlers
 from inputs import PicoInput, CameraInput
@@ -78,17 +77,8 @@ class TopController:
                 print(f"Camera loop error: {e}")
                 time.sleep(1)
     
-    def decision_loop(self):
-        """Decision logic - robot control based on sensors/camera"""
-        while self.running:
-            try:
-                # This is where autonomous logic would go
-                # For now, just pass through commands from Bottom
-                
-                time.sleep(0.1)
-                
-            except Exception as e:
-                print(f"Decision loop error: {e}")
+    # REMOVED: decision_loop() - placeholder with no logic
+    # Future: Add autonomous control logic here if needed
     
     def event_handler_loop(self):
         """Process events from queue"""
@@ -120,13 +110,7 @@ class TopController:
                     cmd = event.get('cmd')
                     self.handle_motor_command(cmd)
                 
-                # Servo commands from Bottom
-                elif event_type == 'servo_control':
-                    servo_id = event.get('servo_id')
-                    angle = event.get('angle')
-                    self.pico.set_servo(servo_id, angle)
-                
-                # Easy servo commands from Bottom
+                # Servo commands from Bottom (HIGH-LEVEL)
                 elif event_type == 'servo_cmd':
                     servo_idx = event.get('servo_idx')
                     angle = event.get('angle')
@@ -152,12 +136,8 @@ class TopController:
                     self.pico.stop_all()
                     state['emergency_stop'] = True
                 
-                elif event_type == 'joystick':
-                    # Handle joystick input from Bottom
-                    x = event.get('x')
-                    y = event.get('y')
-                    # Process joystick (convert to motor commands, etc.)
-                    pass
+                # REMOVED: joystick handler - no actionable logic in Top
+                # Joystick input flows through Bottom and is converted to motor commands there
                 
             except:
                 pass  # Queue timeout - normal
@@ -202,8 +182,8 @@ class TopController:
         motor_map = {
             'MOTOR_ARM_UP': ('worm_gear_arm', 50),
             'MOTOR_ARM_DOWN': ('worm_gear_arm', -50),
-            'MOTOR_CLAMP_OPEN': ('worm_gear_clamp', 50),
-            'MOTOR_CLAMP_CLOSE': ('worm_gear_clamp', -50),
+            'MOTOR_VACUUM_ON': ('vacuum_pump', 100),
+            'MOTOR_VACUUM_OFF': ('vacuum_pump', 0),
             'MOTOR_ACTUATOR_EXTEND': ('linear_actuator', 50),
             'MOTOR_ACTUATOR_RETRACT': ('linear_actuator', -50),
             'MOTOR_PUMP_TOGGLE': ('vacuum_pump', 100 if not state.get('pump_on', False) else 0),
@@ -212,10 +192,13 @@ class TopController:
         if cmd in motor_map:
             motor_id, speed = motor_map[cmd]
             self.pico.set_motor(motor_id, speed)
+            print(f"  Motor: {cmd} → {motor_id} @ {speed}")
             
             # Track pump state
             if cmd == 'MOTOR_PUMP_TOGGLE':
                 state['pump_on'] = not state.get('pump_on', False)
+        else:
+            print(f"  ⚠️  Unknown motor command: {cmd}")
     
     def handle_servo_command(self, servo_idx, angle):
         """Translate servo index to servo ID"""
@@ -232,6 +215,9 @@ class TopController:
         if servo_idx in servo_map:
             servo_id = servo_map[servo_idx]
             self.pico.set_servo(servo_id, angle)
+            print(f"  Servo: {servo_idx} → {servo_id} @ {angle}°")
+        else:
+            print(f"  ⚠️  Unknown servo index: {servo_idx}")
     
     def handle_relay_command(self, cmd, relay_on):
         """Translate relay commands to Pico commands"""
@@ -243,6 +229,9 @@ class TopController:
         if cmd in relay_map:
             relay_id = relay_map[cmd]
             self.pico.set_relay(relay_id, relay_on)
+            print(f"  Relay: {cmd} → {relay_id} = {relay_on}")
+        else:
+            print(f"  ⚠️  Unknown relay command: {cmd}")
     
     def start(self):
         """Start all subsystems"""
@@ -278,7 +267,6 @@ class TopController:
         self.threads = [
             threading.Thread(target=self.pico_loop, daemon=True, name="Pico"),
             threading.Thread(target=self.camera_loop, daemon=True, name="Camera"),
-            threading.Thread(target=self.decision_loop, daemon=True, name="Decision"),
             threading.Thread(target=self.event_handler_loop, daemon=True, name="Events"),
             threading.Thread(target=self.telemetry_loop, daemon=True, name="Telemetry"),
             threading.Thread(target=self.bottom_command_loop, daemon=True, name="BottomCmd"),

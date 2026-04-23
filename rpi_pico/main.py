@@ -1,6 +1,6 @@
 import config
 from machine import Pin
-from sensors import HX710B, ACS712, PH4502C
+from sensors import HX710B, ACS712, PH4502C, BatteryMonitor
 from outputs import Relay, Motor, Servo
 from utils import MovingAverage
 from communication import USBBidirectional, usb_bidirectional_task
@@ -21,6 +21,8 @@ ph_filter = MovingAverage(10)
 relay_lights = Relay(config.PIN_RELAY_LIGHTS)
 relay_valve = Relay(config.PIN_RELAY_VALVE)
 
+battery=BatteryMonitor()
+
 motors = {motor_id: Motor(pins[0], pins[1], config.MOTOR_FREQUENCY) for motor_id, pins in config.MOTOR_PINS.items()}
 servos = {servo_id: Servo(pin, config.SERVO_FREQUENCY) for servo_id, pin in config.SERVO_PINS.items()}
 
@@ -29,6 +31,35 @@ usb = USBBidirectional()
 
 # Pico LED for Crash Diagnostic
 led = Pin("LED", Pin.OUT)
+
+
+async def battery_task():
+    while True:
+        try:
+            battery.update()
+
+            config.state["battery_voltage"] = round(
+                battery.voltage(), 2
+            )
+
+            config.state["battery_current"] = round(
+                battery.current(), 2
+            )
+
+            config.state["battery_percent"] = round(
+                battery.percent(), 1
+            )
+
+            config.state["battery_used_ah"] = round(
+                battery.used_ah, 3
+            )
+
+        except Exception:
+            config.state["battery_voltage"] = 0
+            config.state["battery_current"] = 0
+            config.state["battery_percent"] = 0
+
+        await asyncio.sleep(1)
 
 async def pressure_task():
     while True:     
