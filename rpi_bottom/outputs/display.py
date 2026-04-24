@@ -573,9 +573,8 @@ class DisplayOutput:
 
         ps = (
             f'libcamerasrc '
-            f'! video/x-raw,format=NV12,width={width},height={height},'
+            f'! video/x-raw,width={width},height={height},'
             f'framerate={fps}/1 '
-            f'! v4l2convert '
             f'! videoconvert '
             f'! queue leaky=downstream max-size-buffers=2 '
             f'! gtk4paintablesink name=gtksink sync=false'
