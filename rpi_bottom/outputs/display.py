@@ -153,6 +153,8 @@ class DisplayOutput:
         self.camera_running = False
         self.gst_pipeline   = None
         self.cam_picture    = Gtk.Picture()  # placeholder until pipeline is built
+        self.no_signal_lbl  = Gtk.Label(label="NO SIGNAL")
+        self.overlay_box    = Gtk.Box()      # placeholder until built
 
         # relay/pump visual state
         self._lights_on = False
