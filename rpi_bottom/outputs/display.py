@@ -152,6 +152,7 @@ class DisplayOutput:
         self.video_port     = config.get('video_port', 5001)
         self.camera_running = False
         self.gst_pipeline   = None
+        self.cam_picture    = Gtk.Picture()  # placeholder until pipeline is built
 
         # relay/pump visual state
         self._lights_on = False
