@@ -1,4 +1,3 @@
-
 import json
 import os
 
@@ -25,22 +24,22 @@ PIN_SPI_CS = 5
 # ========================================
 
 DEFAULT_CONFIG = {
-    'rpi_top_ip': '192.168.43.6',
-    'rpi_top_port': 5002,
-    'video_port': 5001,
-    
+    # Pico direct USB connection (replaces rpi_top forwarding)
+    'pico_port': '/dev/ttyACM0',
+    'pico_baud': 115200,
+
     'alert_phone': '+639123456789',
     'alert_cooldown': 300,  # 5 minutes
-    
+
     'display_width': 800,
     'display_height': 480,
     'display_overlay': True,
     'video_enabled': True,
     'video_quality': 'medium',
-    
+
     'air780e_port': '/dev/ttyUSB0',
     'air780e_baud': 115200,
-    
+
     'joystick_mode': 'analog',  # 'usb' or 'analog'
 }
 
@@ -50,40 +49,35 @@ DEFAULT_CONFIG = {
 
 class Config:
     """Persistent configuration storage"""
-    
+
     def __init__(self, config_file='/home/pi/.robot_config.json'):
         self.config_file = config_file
         self.config = self.load()
-    
+
     def load(self):
-        """Load config from file"""
         if os.path.exists(self.config_file):
             try:
                 with open(self.config_file, 'r') as f:
                     loaded = json.load(f)
-                    # Merge with defaults
                     cfg = DEFAULT_CONFIG.copy()
                     cfg.update(loaded)
                     return cfg
-            except:
+            except Exception:
                 pass
         return DEFAULT_CONFIG.copy()
-    
+
     def save(self):
-        """Save config to file"""
         try:
             with open(self.config_file, 'w') as f:
                 json.dump(self.config, f, indent=2)
             return True
-        except:
+        except Exception:
             return False
-    
+
     def get(self, key, default=None):
-        """Get config value"""
         return self.config.get(key, default)
-    
+
     def set(self, key, value):
-        """Set config value"""
         self.config[key] = value
         self.save()
 
@@ -95,21 +89,28 @@ state = {
     # System status
     'running': False,
     'emergency_stop': False,
-    
+
     # Inputs
     'joystick_x': 0.0,
     'joystick_y': 0.0,
     'liquid_detected': False,
-    
+
     # Outputs
     'winch_direction': 'stop',  # 'forward', 'reverse', 'stop'
-    
+
     # Communication
-    'top_connected': False,
+    'pico_connected': False,
     'telemetry': {},
-    
+
+    # Relay mirror (for display button sync)
+    'relay_lights': False,
+    'relay_valve': False,
+
     # Display
     'camera_active': False,
+
+    # Pump tracking
+    'pump_on': False,
 }
 
 # Global config instance

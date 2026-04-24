@@ -12,6 +12,7 @@ Install (once):
 
 import threading
 import time
+from turtle import width
 
 import gi
 gi.require_version('Gtk', '4.0')
@@ -556,26 +557,24 @@ class DisplayOutput:
     # ── GStreamer appsink camera ───────────────────────────────────────────
 
     def start_camera(self):
+        
+        width  = 1280
+        height = 720
+        fps    = 30
+ 
         if self.camera_running:
             return
         if not GST_AVAILABLE:
             self.no_signal_lbl.set_label("GSTREAMER NOT INSTALLED")
             return
 
-        port = self.video_port
-
-        decoder = "v4l2h264dec" if Gst.ElementFactory.find("v4l2h264dec") else "avdec_h264"
-        print(f"Camera decoder: {decoder}")
-
         ps = (
-            f'udpsrc port={port} '
-            f'caps="application/x-rtp,media=video,clock-rate=90000,'
-            f'encoding-name=H264,payload=96" '
-            f'! rtph264depay '
-            f'! h264parse config-interval=1 '
-            f'! queue leaky=downstream max-size-buffers=2 '
-            f'! {decoder} '
+            f'libcamerasrc '
+            f'! video/x-raw,format=NV12,width={width},height={height},'
+            f'framerate={fps}/1 '
+            f'! v4l2convert '
             f'! videoconvert '
+            f'! queue leaky=downstream max-size-buffers=2 '
             f'! gtk4paintablesink name=gtksink sync=false'
         )
 

@@ -1,317 +1,318 @@
 #!/usr/bin/env python3
 """
-RPi4 BOTTOM - Main System (Fixed for Tkinter)
+RPi4 BOTTOM - Main System
+Pico connected directly via USB — RPi Top bypassed.
+All motor/servo/relay commands go straight to Pico.
+Camera stream is still received from RPi Top if video_enabled=True
+(Top still runs its GStreamer sender independently).
 """
 
 import time
 import threading
 from queue import Queue
 
-# Import all handlers
-from inputs import JoystickInput, ButtonInput, LiquidSensorInput
+from inputs import JoystickInput, ButtonInput, LiquidSensorInput, PicoInput
 from outputs import DisplayOutput, WinchOutput
-from communication import TopClient, Air780ESMS
+from communication import Air780ESMS
 from config import config, state
 
-# ========================================
-# MAIN CONTROLLER
-# ========================================
+
+# ── Servo index → Pico servo_id map (mirrors rpi_top handle_servo_command) ──
+SERVO_MAP = {
+    0: 'sg90',
+    1: 'mg996_1',
+    2: 'mg996_2',
+    3: 'mg996_3',
+    4: 'mg996_4',
+    5: 'mg996_5',
+    6: 'mg996_6',
+}
+
+# ── High-level motor command → (motor_id, speed) ────────────────────────────
+MOTOR_CMD_MAP = {
+    'MOTOR_ARM_UP':          ('worm_gear_arm',    50),
+    'MOTOR_ARM_DOWN':        ('worm_gear_arm',   -50),
+    'MOTOR_CLAMP_OPEN':      ('worm_gear_clamp',  50),
+    'MOTOR_CLAMP_CLOSE':     ('worm_gear_clamp', -50),
+    'MOTOR_ACTUATOR_EXTEND': ('linear_actuator',  50),
+    'MOTOR_ACTUATOR_RETRACT':('linear_actuator', -50),
+    'MOTOR_VACUUM_ON':       ('vacuum_pump',      100),
+    'MOTOR_VACUUM_OFF':      ('vacuum_pump',       0),
+    # MOTOR_PUMP_TOGGLE handled dynamically
+}
+
+# ── High-level relay command → relay_id ─────────────────────────────────────
+RELAY_CMD_MAP = {
+    'RELAY_LIGHTS_TOGGLE':   'lights',
+    'RELAY_SOLENOID_TOGGLE': 'solenoid',
+}
+
+
 class BottomController:
-    """Main controller - coordinates all subsystems"""
-    
+    """Main controller — coordinates all subsystems."""
+
     def __init__(self):
-        # Initialize all inputs
-        self.joystick = JoystickInput(mode=config.get('joystick_mode'))
-        self.buttons = ButtonInput()
-        self.liquid_sensor = LiquidSensorInput()
-        
-        # Initialize all outputs
+        # Inputs
+        self.joystick     = JoystickInput(mode=config.get('joystick_mode'))
+        self.buttons      = ButtonInput()
+        self.liquid_sensor= LiquidSensorInput()
+        self.pico         = PicoInput(
+                                port=config.get('pico_port'),
+                                baud=config.get('pico_baud'))
+
+        # Outputs
         self.display = DisplayOutput(
             width=config.get('display_width'),
-            height=config.get('display_height')
-        )
+            height=config.get('display_height'))
         self.winch = WinchOutput()
-        
-        # Initialize communication
-        self.top_client = TopClient(
-            host=config.get('rpi_top_ip'),
-            port=config.get('rpi_top_port')
-        )
+
+        # Communication
         self.sms = Air780ESMS(
             port=config.get('air780e_port'),
-            phone=config.get('alert_phone')
-        )
-        
-        # Event queue for inter-thread communication
+            phone=config.get('alert_phone'))
+
         self.event_queue = Queue()
-        
-        # Control flags
-        self.running = False
-        
-        # Threads
-        self.threads = []
-    
+        self.running     = False
+        self.threads     = []
+
+    # ── Helper: translate high-level motor cmd ───────────────────────────────
+
+    def _handle_motor_cmd(self, cmd):
+        if cmd == 'MOTOR_PUMP_TOGGLE':
+            on = not state.get('pump_on', False)
+            state['pump_on'] = on
+            self.pico.set_motor('vacuum_pump', 100 if on else 0)
+            print(f"Motor: PUMP_TOGGLE → {'ON' if on else 'OFF'}")
+        elif cmd in MOTOR_CMD_MAP:
+            motor_id, speed = MOTOR_CMD_MAP[cmd]
+            self.pico.set_motor(motor_id, speed)
+            print(f"Motor: {cmd} → {motor_id} @ {speed}")
+        else:
+            print(f"⚠️  Unknown motor_cmd: {cmd}")
+
+    def _handle_relay_cmd(self, cmd, relay_on):
+        if cmd in RELAY_CMD_MAP:
+            relay_id = RELAY_CMD_MAP[cmd]
+            self.pico.set_relay(relay_id, relay_on)
+            # Mirror into state so display stays in sync
+            if relay_id == 'lights':
+                state['relay_lights'] = relay_on
+            elif relay_id == 'solenoid':
+                state['relay_valve'] = relay_on
+            print(f"Relay: {cmd} → {relay_id} = {relay_on}")
+        else:
+            print(f"⚠️  Unknown relay_cmd: {cmd}")
+
+    # ── Threads ──────────────────────────────────────────────────────────────
+
     def input_loop(self):
-        """Read all inputs at 20Hz"""
+        """Read physical inputs at 20 Hz."""
         while self.running:
             try:
-                # Read joystick
-                js_state = self.joystick.read()
-                if abs(js_state['x']) > 0.1 or abs(js_state['y']) > 0.1:
-                    state['joystick_x'] = js_state['x']
-                    state['joystick_y'] = js_state['y']
-                    # Send to Top
-                    self.event_queue.put({
-                        'type': 'joystick',
-                        'x': js_state['x'],
-                        'y': js_state['y']
-                    })
-                
-                # Read buttons
-                button_events = self.buttons.read()
-                for event in button_events:
+                js = self.joystick.read()
+                if abs(js['x']) > 0.1 or abs(js['y']) > 0.1:
+                    state['joystick_x'] = js['x']
+                    state['joystick_y'] = js['y']
+                    # Joystick drives the arm motor directly
+                    # Map Y axis → worm_gear_arm speed
+                    arm_speed = int(js['y'] * 100)
+                    self.pico.set_motor('worm_gear_arm', arm_speed)
+
+                for event in self.buttons.read():
                     self.event_queue.put(event)
-                
-                # Read liquid sensor
-                liquid_detected = self.liquid_sensor.read()
-                if liquid_detected != state['liquid_detected']:
-                    state['liquid_detected'] = liquid_detected
-                    if liquid_detected:
-                        self.event_queue.put({
-                            'type': 'liquid_detected',
-                            'level': True
-                        })
-                
-                time.sleep(0.05)  # 20Hz
-                
+
+                liquid = self.liquid_sensor.read()
+                if liquid != state['liquid_detected']:
+                    state['liquid_detected'] = liquid
+                    if liquid:
+                        self.event_queue.put({'type': 'liquid_detected'})
+
+                time.sleep(0.05)
+
             except Exception as e:
                 print(f"Input loop error: {e}")
-    
-    def event_handler_loop(self):
-        """Process events from queue"""
+
+    def pico_loop(self):
+        """Poll Pico sensors & unsolicited alerts at 10 Hz."""
         while self.running:
             try:
-                # Get event (blocking with timeout)
+                sensors = self.pico.read_sensors()
+                if sensors:
+                    state['telemetry'] = {'sensors': sensors}
+
+                for alert in self.pico.get_alerts():
+                    print(f"Pico alert: {alert}")
+                    atype = alert.get('alert_type', 'PICO_ALERT')
+                    msg   = alert.get('message', '')
+                    sev   = alert.get('severity', 'warning')
+                    if sev == 'critical':
+                        self.sms.send_alert(atype, msg)
+                    self.event_queue.put(alert)
+
+                time.sleep(0.1)
+
+            except Exception as e:
+                print(f"Pico loop error: {e}")
+                time.sleep(1)
+
+    def event_handler_loop(self):
+        """Process events from queue."""
+        while self.running:
+            try:
                 event = self.event_queue.get(timeout=0.1)
-                
-                event_type = event.get('type')
-                
-                # Emergency stop
-                if event_type == 'emergency_stop':
+                etype = event.get('type')
+
+                # ── Physical buttons ─────────────────────────────────────
+                if etype == 'emergency_stop':
                     print("EMERGENCY STOP")
                     state['emergency_stop'] = True
-                    state['running'] = False
+                    state['running']        = False
                     self.winch.stop()
-                    # Send to Top
-                    self.top_client.send_command({'type': 'emergency_stop'})
-                    # Send SMS
+                    self.pico.stop_all()
                     self.sms.send_alert('EMERGENCY_STOP', 'Emergency stop activated!')
-                
-                # Start button
-                elif event_type == 'button_start':
-                    print("Start")
+
+                elif etype == 'button_start':
                     state['running'] = True
-                
-                # Stop button
-                elif event_type == 'button_stop':
-                    print("Stop")
+
+                elif etype == 'button_stop':
                     state['running'] = False
                     self.winch.stop()
-                
-                # Winch controls
-                elif event_type == 'winch_up':
-                    print("Winch UP")
+
+                elif etype == 'winch_up':
                     self.winch.forward()
                     state['winch_direction'] = 'forward'
-                
-                elif event_type == 'winch_down':
-                    print("Winch DOWN")
+
+                elif etype == 'winch_down':
                     self.winch.reverse()
                     state['winch_direction'] = 'reverse'
-                
-                elif event_type == 'winch_stop':
+
+                elif etype == 'winch_stop':
                     self.winch.stop()
                     state['winch_direction'] = 'stop'
-                
-                # Joystick
-                elif event_type == 'joystick':
-                    self.top_client.send_command(event)
-                
-                # Liquid detection
-                elif event_type == 'liquid_detected':
+
+                # ── Sensor / system alerts ───────────────────────────────
+                elif etype == 'liquid_detected':
                     print("Liquid detected!")
                     self.sms.send_alert('LIQUID_DETECTED', 'Liquid level sensor triggered')
-                
-                # Toggle camera
-                elif event_type == 'toggle_camera':
+
+                elif etype == 'alert':
+                    # Pico stall / conflict alerts already handled in pico_loop
+                    pass
+
+                # ── Display UI events ────────────────────────────────────
+                elif etype == 'toggle_camera':
                     current = config.get('video_enabled')
                     config.set('video_enabled', not current)
                     if config.get('video_enabled'):
                         self.display.start_camera()
                     else:
                         self.display.stop_camera()
-                
-                # Toggle overlay
-                elif event_type == 'toggle_overlay':
-                    current = config.get('display_overlay')
-                    config.set('display_overlay', not current)
-                
-                # Motor controls (HIGH-LEVEL)
-                elif event_type == 'motor_cmd':
-                    cmd = event.get('cmd')
-                    print(f"Motor: {cmd}")
-                    self.top_client.send_command({'type': 'motor_cmd', 'cmd': cmd})
-                
-                # Motor controls (LOW-LEVEL direct speed)
-                elif event_type == 'motor_control':
+
+                elif etype == 'toggle_overlay':
+                    config.set('display_overlay', not config.get('display_overlay'))
+
+                # ── Motor commands (high-level) ──────────────────────────
+                elif etype == 'motor_cmd':
+                    self._handle_motor_cmd(event.get('cmd'))
+
+                # ── Motor commands (low-level direct speed) ──────────────
+                elif etype == 'motor_control':
                     motor_id = event.get('motor_id')
-                    speed = event.get('speed')
+                    speed    = event.get('speed')
                     print(f"Motor direct: {motor_id}={speed}")
-                    self.top_client.send_command({'type': 'motor_control', 'motor_id': motor_id, 'speed': speed})
-                
-                # Servo controls
-                elif event_type == 'servo_control':
-                    servo_idx = event.get('servo_idx')
+                    self.pico.set_motor(motor_id, speed)
+
+                # ── Servo commands (high-level index) ────────────────────
+                elif etype == 'servo_control':
+                    idx   = event.get('servo_idx')
                     angle = event.get('angle')
-                    print(f"Servo {servo_idx}: {angle} deg")
-                    self.top_client.send_command({
-                        'type': 'servo_cmd',
-                        'servo_idx': servo_idx,
-                        'angle': angle
-                    })
-                
-                # Relay controls (HIGH-LEVEL)
-                elif event_type == 'relay_cmd':
-                    cmd = event.get('cmd')
-                    relay_state = event.get('state')
-                    print(f"Relay: {cmd} = {relay_state}")
-                    self.top_client.send_command({
-                        'type': 'relay_cmd',
-                        'cmd': cmd,
-                        'state': relay_state
-                    })
-                
-                # Relay controls (LOW-LEVEL direct state)
-                elif event_type == 'relay_control':
+                    servo_id = SERVO_MAP.get(idx)
+                    if servo_id:
+                        self.pico.set_servo(servo_id, angle)
+                        print(f"Servo {idx} → {servo_id} @ {angle}°")
+                    else:
+                        print(f"⚠️  Unknown servo_idx: {idx}")
+
+                # ── Relay commands (high-level) ───────────────────────────
+                elif etype == 'relay_cmd':
+                    self._handle_relay_cmd(event.get('cmd'), event.get('state'))
+
+                # ── Relay commands (low-level direct) ────────────────────
+                elif etype == 'relay_control':
                     relay_id = event.get('relay_id')
                     relay_on = event.get('state')
                     print(f"Relay direct: {relay_id}={relay_on}")
-                    self.top_client.send_command({
-                        'type': 'relay_control',
-                        'relay_id': relay_id,
-                        'state': relay_on
-                    })
-                
-            except:
-                pass  # Queue timeout - normal
-    
-    def telemetry_loop(self):
-        """Receive telemetry from RPi Top"""
+                    self.pico.set_relay(relay_id, relay_on)
+
+            except Exception:
+                pass  # Queue timeout — normal
+
+    def display_update_loop(self):
+        """Push state to display and collect UI events at 30 Hz."""
         while self.running:
             try:
-                data = self.top_client.receive()
-                
-                if data:
-                    data_type = data.get('type')
-                    
-                    if data_type == 'telemetry':
-                        state['telemetry'] = data.get('data', {})
-                    
-                    elif data_type == 'alert':
-                        alert_type = data.get('alert_type')
-                        message = data.get('message')
-                        severity = data.get('severity')
-                        
-                        print(f"Alert: [{alert_type}] {message}")
-                        
-                        # Forward critical alerts via SMS
-                        if severity == 'critical':
-                            self.sms.send_alert(alert_type, message)
-                
-                time.sleep(0.01)
-                
-            except Exception as e:
-                pass
-    
-    def update_display_from_thread(self):
-        """Update display state from background thread"""
-        while self.running:
-            try:
-                # Update display state (this is thread-safe)
                 self.display.update(state)
-                
-                # Check for UI button events
-                ui_events = self.display.handle_events()
-                for event in ui_events:
+                for event in self.display.handle_events():
                     self.event_queue.put(event)
-                
-                time.sleep(1/30)  # 30 FPS
+                time.sleep(1 / 30)
             except Exception as e:
                 print(f"Display update error: {e}")
-    
+
+    # ── Lifecycle ────────────────────────────────────────────────────────────
+
     def start(self):
-        """Start all subsystems"""
-        print("\n" + "="*70)
-        print("RPi4 BOTTOM - Starting System")
-        print("="*70)
-        
-        # Connect to Top
-        if self.top_client.connect():
-            state['top_connected'] = True
-            print("Connected to RPi Top")
+        print("\n" + "=" * 70)
+        print("RPi4 BOTTOM — Direct Pico Mode (RPi Top bypassed)")
+        print("=" * 70)
+
+        # Connect to Pico
+        if self.pico.connect():
+            state['pico_connected'] = True
         else:
-            print("RPi Top connection failed")
-        
-        # Start camera if enabled
+            print("⚠️  Pico not available — hardware commands disabled")
+
+        # Start camera receiver if enabled
         if config.get('video_enabled'):
             self.display.start_camera()
-        
-        # Set running flag
+
         self.running = True
-        
-        # Create and start background threads (ALL EXCEPT DISPLAY)
+
         self.threads = [
-            threading.Thread(target=self.input_loop, daemon=True, name="Input"),
-            threading.Thread(target=self.event_handler_loop, daemon=True, name="Events"),
-            threading.Thread(target=self.telemetry_loop, daemon=True, name="Telemetry"),
-            threading.Thread(target=self.update_display_from_thread, daemon=True, name="DisplayUpdate"),
+            threading.Thread(target=self.input_loop,        daemon=True, name="Input"),
+            threading.Thread(target=self.pico_loop,         daemon=True, name="Pico"),
+            threading.Thread(target=self.event_handler_loop,daemon=True, name="Events"),
+            threading.Thread(target=self.display_update_loop,daemon=True, name="DisplayUpdate"),
         ]
-        
-        for thread in self.threads:
-            thread.start()
-            print(f"{thread.name} thread started")
-        
-        print("\nRPi4 Bottom READY")
-        print("="*70 + "\n")
-        
-        # Run display in MAIN THREAD (this blocks)
+
+        for t in self.threads:
+            t.start()
+            print(f"✓ {t.name} thread started")
+
+        print("\n✓ RPi4 Bottom READY")
+        print("=" * 70 + "\n")
+
+        # Display runs in main thread (blocks)
         self.display.run()
-    
+
     def stop(self):
-        """Stop all subsystems"""
         print("\nStopping system...")
-        
         self.running = False
-        
-        # Wait for threads
-        for thread in self.threads:
-            thread.join(timeout=1.0)
-        
-        # Cleanup hardware
+
+        for t in self.threads:
+            t.join(timeout=1.0)
+
+        self.pico.stop_all()
+        self.pico.close()
         self.winch.cleanup()
         self.buttons.cleanup()
         self.display.cleanup()
-        self.top_client.close()
         self.sms.close()
-        
+
         print("Cleanup complete")
 
-# ========================================
-# MAIN ENTRY POINT
-# ========================================
+
 if __name__ == "__main__":
     controller = BottomController()
-    
     try:
         controller.start()
     except KeyboardInterrupt:
