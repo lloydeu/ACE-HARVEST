@@ -68,17 +68,17 @@ window, .root-bg        { background-color: #0d0d0d; }
 .clock                  { color: #4a4a4a; font-size: 9px; font-family: monospace; }
 .no-signal              { color: #4a4a4a; font-size: 13px; font-weight: bold; }
 
-.btn                    { background-color: #333333; color: #ffffff;
-                          border: 1px solid #555555; border-radius: 3px;
-                          padding: 2px 6px; font-size: 12px; font-weight: bold; }
-.btn:hover              { background-color: #444444; }
-.btn:active             { background-color: #555555; }
-.btn-on-green           { background-color: #22c55e; color: #0d0d0d; }
-.btn-on-green:hover     { background-color: #16a34a; }
-.btn-on-amber           { background-color: #f59e0b; color: #0d0d0d; }
-.btn-on-amber:hover     { background-color: #d97706; }
-.btn-on-cyan            { background-color: #00c8ff; color: #0d0d0d; }
-.btn-on-cyan:hover      { background-color: #0099cc; }
+.btn                    { background-color: #505050; color: #000000;
+                          border: 3px solid #ffffff; border-radius: 3px;
+                          padding: 6px 10px; font-size: 12px; font-weight: bold; }
+.btn:hover              { background-color: #707070; border-color: #ffff99; color: #000000; }
+.btn:active             { background-color: #606060; border-color: #ffff99; color: #000000; }
+.btn-on-green           { background-color: #00aa00; color: #000000; border-color: #00ff00; }
+.btn-on-green:hover     { background-color: #00dd00; border-color: #ffff00; color: #000000; }
+.btn-on-amber           { background-color: #ffaa00; color: #000000; border-color: #ffff00; }
+.btn-on-amber:hover     { background-color: #ffdd00; border-color: #ffffff; color: #000000; }
+.btn-on-cyan            { background-color: #00aaff; color: #000000; border-color: #00ffff; }
+.btn-on-cyan:hover      { background-color: #00ddff; border-color: #ffffff; color: #000000; }
 .btn-exit               { background-color: #141414; color: #4a4a4a;
                           border: none; border-radius: 0;
                           font-size: 13px; font-weight: bold; padding: 0 12px; }
