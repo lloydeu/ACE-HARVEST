@@ -262,9 +262,7 @@ class BottomController:
         else:
             print("RPi Top connection failed")
         
-        # Start camera if enabled
-        if config.get('video_enabled'):
-            self.display.start_camera()
+        # Autostart camera is handled in display._on_activate
         
         # Set running flag
         self.running = True
