@@ -8,7 +8,7 @@ import os
 DEFAULT_CONFIG = {
     'pico_port': '/dev/ttyACM0',
     'pico_baud': 115200,
-    'rpi_bottom_ip': '192.168.43.99',
+    'rpi_bottom_ip': '192.168.1.1',
     'tcp_port': 5002,
     'video_port': 5001,
     'camera_width': 1280,

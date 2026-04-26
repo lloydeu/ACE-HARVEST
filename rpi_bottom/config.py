@@ -25,7 +25,7 @@ PIN_SPI_CS = 5
 # ========================================
 
 DEFAULT_CONFIG = {
-    'rpi_top_ip': '192.168.43.6',
+    'rpi_top_ip': '192.168.1.2',
     'rpi_top_port': 5002,
     'video_port': 5001,
     
