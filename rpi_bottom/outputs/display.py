@@ -449,10 +449,10 @@ class DisplayOutput:
         rr.set_margin_start(PAD); rr.set_margin_end(PAD); rr.set_margin_bottom(4)
         p.append(rr)
 
-        self.lights_btn = _flat_btn("[L] LIGHTS", self._toggle_lights)
+        self.lights_btn = _flat_btn("LIGHTS OFF", self._toggle_lights)
         rr.append(self.lights_btn)
 
-        self.valve_btn = _flat_btn("[V] VALVE", self._toggle_valve)
+        self.valve_btn = _flat_btn("VALVE OFF", self._toggle_valve)
         rr.append(self.valve_btn)
 
     def _fill_servos(self, p):
@@ -514,6 +514,7 @@ class DisplayOutput:
 
     def _toggle_lights(self, btn):
         self._lights_on = not self._lights_on
+        btn.set_label("LIGHTS ON" if self._lights_on else "LIGHTS OFF")
         if self._lights_on:
             _add_class(btn, 'btn-on-amber')
         else:
@@ -522,6 +523,7 @@ class DisplayOutput:
 
     def _toggle_valve(self, btn):
         self._valve_on = not self._valve_on
+        btn.set_label("SOLENOID ON" if self._valve_on else "SOLENOID OFF")
         if self._valve_on:
             _add_class(btn, 'btn-on-cyan')
         else:
@@ -711,13 +713,15 @@ class DisplayOutput:
             for key, (lbl, fmt) in self.overlay_values.items():
                 lbl.set_label(fmt.format(sensors.get(key, defaults[key])))
 
-            # Sync relay button colours from telemetry
+            # Sync relay button colours and labels from telemetry
             tele = self.current_state
             if 'relay_lights' in tele and tele['relay_lights'] != self._lights_on:
                 self._lights_on = tele['relay_lights']
+                self.lights_btn.set_label("LIGHTS ON" if self._lights_on else "LIGHTS OFF")
                 _set_class(self.lights_btn, 'btn-on-amber', self._lights_on)
             if 'relay_valve' in tele and tele['relay_valve'] != self._valve_on:
                 self._valve_on = tele['relay_valve']
+                self.valve_btn.set_label("SOLENOID ON" if self._valve_on else "SOLENOID OFF")
                 _set_class(self.valve_btn, 'btn-on-cyan', self._valve_on)
 
         except Exception as e:
