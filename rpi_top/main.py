@@ -240,11 +240,12 @@ class TopController:
         print("="*70)
         
         # Connect to Pico
-        if self.pico.connect():
+        success, error = self.pico.connect()
+        if success:
             state['pico_connected'] = True
             print("✓ Connected to Pico")
         else:
-            print("⚠️  Pico connection failed")
+            print(f"⚠️  Pico connection failed: {error}")
         
         # Start camera streaming
         if self.camera_output.start():

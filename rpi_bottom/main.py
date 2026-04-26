@@ -146,14 +146,7 @@ class BottomController:
                 elif event_type == 'toggle_camera':
                     current = config.get('video_enabled')
                     config.set('video_enabled', not current)
-                    if config.get('video_enabled'):
-                        self.display.start_camera()
-                    else:
-                        self.display.stop_camera()
-                
-                # Toggle overlay
-                elif event_type == 'toggle_overlay':
-                    current = config.get('display_overlay')
+
                     config.set('display_overlay', not current)
                 
                 # Motor controls (HIGH-LEVEL)
@@ -261,10 +254,6 @@ class BottomController:
             print("Connected to RPi Top")
         else:
             print("RPi Top connection failed")
-        
-        # Start camera if enabled
-        if config.get('video_enabled'):
-            self.display.start_camera()
         
         # Set running flag
         self.running = True

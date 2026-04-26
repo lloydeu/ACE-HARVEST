@@ -23,10 +23,10 @@ class PicoInput:
             resp = self.ser.read_all().decode('utf-8', errors='ignore')
             if 'PONG' in resp:
                 self.connected = True
-                return True
+                return True, None
         except Exception as e:
-            print(f"Pico connection failed: {e}")
-        return False
+            return False, str(e)
+        return False, "No PONG response"
     
     def read_sensors(self):
         """Read all sensors from Pico"""

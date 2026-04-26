@@ -15,20 +15,32 @@ class BottomServer:
     
     def start(self):
         """Start TCP server"""
+        if self.running:
+            self.stop()
+
         try:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            if hasattr(socket, 'SO_EXCLUSIVEADDRUSE'):
+                self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 0)
             self.sock.bind(('0.0.0.0', self.port))
             self.sock.listen(1)
             self.sock.settimeout(1.0)
-            
+
             self.running = True
             self.listen_thread = threading.Thread(target=self._listen_loop, daemon=True)
             self.listen_thread.start()
-            
+
             return True
         except Exception as e:
             print(f"Server start failed: {e}")
+            self.running = False
+            if self.sock:
+                try:
+                    self.sock.close()
+                except Exception:
+                    pass
+                self.sock = None
             return False
     
     def _listen_loop(self):
@@ -40,9 +52,15 @@ class BottomServer:
                 self.client_sock = client
                 self.client_sock.settimeout(1.0)
             except socket.timeout:
-                pass
+                continue
+            except OSError as e:
+                if not self.running:
+                    break
+                print(f"Accept error: {e}")
+                break
             except Exception as e:
                 print(f"Accept error: {e}")
+                break
     
     def receive(self):
         """Receive command from Bottom"""
@@ -54,7 +72,8 @@ class BottomServer:
                 return json.loads(data)
         except socket.timeout:
             return None
-        except Exception as e:
+        except Exception:
+            self.client_sock.close()
             self.client_sock = None
         return None
     
@@ -66,7 +85,8 @@ class BottomServer:
             msg = json.dumps(data)
             self.client_sock.sendall(f"{msg}\n".encode('utf-8'))
             return True
-        except:
+        except Exception:
+            self.client_sock.close()
             self.client_sock = None
             return False
     
@@ -77,7 +97,29 @@ class BottomServer:
     def stop(self):
         """Stop server"""
         self.running = False
+
         if self.client_sock:
-            self.client_sock.close()
+            try:
+                self.client_sock.shutdown(socket.SHUT_RDWR)
+            except Exception:
+                pass
+            try:
+                self.client_sock.close()
+            except Exception:
+                pass
+            self.client_sock = None
+
         if self.sock:
-            self.sock.close()
+            try:
+                self.sock.shutdown(socket.SHUT_RDWR)
+            except Exception:
+                pass
+            try:
+                self.sock.close()
+            except Exception:
+                pass
+            self.sock = None
+
+        if self.listen_thread:
+            self.listen_thread.join(timeout=1.0)
+            self.listen_thread = None
