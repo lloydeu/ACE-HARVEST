@@ -406,6 +406,9 @@ class DisplayOutput:
 
         p.append(_hsep())
 
+        self.stop_btn = _flat_btn("EMERGENCY STOP", self._emergency_stop)
+        p.append(self.stop_btn)
+
         # WINCH
         # p.append(_section("WINCH"))
         # wr = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
@@ -484,6 +487,8 @@ class DisplayOutput:
         self.valve_btn = _flat_btn("VALVE OFF", self._toggle_valve)
         rr.append(self.valve_btn)
 
+        
+
     def _fill_servos(self, p):
         PAD = 6
         p.append(_section("SERVOS"))
@@ -540,6 +545,8 @@ class DisplayOutput:
             _remove_class(btn, 'btn-on-green')
         self._emit('motor_cmd', cmd='MOTOR_CUT_TOGGLE')
 
+    def _emergency_stop(self, btn):
+        self._emit('emergency_stop')
 
     def _toggle_lights(self, btn):
         self._lights_on = not self._lights_on
