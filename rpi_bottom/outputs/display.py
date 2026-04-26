@@ -83,7 +83,7 @@ window, .root-bg        { background-color: #0d0d0d; }
                           border: none; border-radius: 0;
                           font-size: 13px; font-weight: bold; padding: 0 12px; }
 .btn-exit:hover         { background-color: #2a0a0a; color: #ef4444; }
-.btn-exit-armed         { background-color: #ef4444; color: white; }
+.btn-exit-armed         { background-color: #ef4444; color: red; }
 """
 
 def _css_provider():
@@ -514,17 +514,26 @@ class DisplayOutput:
 
     def _toggle_lights(self, btn):
         self._lights_on = not self._lights_on
-        _set_class(btn, 'btn-on-amber', self._lights_on)
+        if self._lights_on:
+            _add_class(btn, 'btn-on-amber')
+        else:
+            _remove_class(btn, 'btn-on-amber')
         self._emit('relay_cmd', cmd='RELAY_LIGHTS_TOGGLE', state=self._lights_on)
 
     def _toggle_valve(self, btn):
         self._valve_on = not self._valve_on
-        _set_class(btn, 'btn-on-cyan', self._valve_on)
+        if self._valve_on:
+            _add_class(btn, 'btn-on-cyan')
+        else:
+            _remove_class(btn, 'btn-on-cyan')
         self._emit('relay_cmd', cmd='RELAY_SOLENOID_TOGGLE', state=self._valve_on)
 
     def _toggle_camera(self, btn):
         self._video_on = not self._video_on
-        _set_class(btn, 'btn-on-green', self._video_on)
+        if self._video_on:
+            _add_class(btn, 'btn-on-green')
+        else:
+            _remove_class(btn, 'btn-on-green')
         self._emit('toggle_camera')
         if self._video_on:
             self.start_camera()
@@ -536,7 +545,10 @@ class DisplayOutput:
 
     def _toggle_overlay(self, btn):
         self._overlay_on = not self._overlay_on
-        _set_class(btn, 'btn-on-green', self._overlay_on)
+        if self._overlay_on:
+            _add_class(btn, 'btn-on-green')
+        else:
+            _remove_class(btn, 'btn-on-green')
         self.overlay_box.set_visible(self._overlay_on)
         self._emit('toggle_overlay')
 
