@@ -317,10 +317,8 @@ class DisplayOutput:
 
         self.overlay_values = {}
         for label, key, fmt in [
-            ('PRESSURE', 'pressure_kpa',   '{:.1f} kPa'),
-            ('pH',       'ph_level',       '{:.2f}'),
-            ('CURRENT1', 'current_amps_1', '{:.2f} A'),
-            ('BATTERY', 'battery_percent', '{:.0f}%'),
+            ('PRESSURE', 'pressure_kpa', '{:.1f} kPa'),
+            ('BATTERY',  'battery_percent', '{:.0f}%'),
         ]:
             row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
             row.set_margin_start(8)
