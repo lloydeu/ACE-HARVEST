@@ -406,12 +406,12 @@ class DisplayOutput:
         p.append(_hsep())
 
         # WINCH
-        p.append(_section("WINCH"))
-        wr = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-        wr.set_margin_start(PAD); wr.set_margin_end(PAD); wr.set_margin_bottom(4)
-        p.append(wr)
-        wr.append(_flat_btn("UP",   lambda b: self._emit('winch_up')))
-        wr.append(_flat_btn("DOWN", lambda b: self._emit('winch_down')))
+        # p.append(_section("WINCH"))
+        # wr = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        # wr.set_margin_start(PAD); wr.set_margin_end(PAD); wr.set_margin_bottom(4)
+        # p.append(wr)
+        # wr.append(_flat_btn("UP",   lambda b: self._emit('winch_up')))
+        # wr.append(_flat_btn("DOWN", lambda b: self._emit('winch_down')))
 
         p.append(_hsep())
 
