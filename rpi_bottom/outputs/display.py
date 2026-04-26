@@ -68,11 +68,11 @@ window, .root-bg        { background-color: #0d0d0d; }
 .clock                  { color: #4a4a4a; font-size: 9px; font-family: monospace; }
 .no-signal              { color: #4a4a4a; font-size: 13px; font-weight: bold; }
 
-.btn                    { background-color: #222222; color: #e2e2e2;
-                          border: none; border-radius: 3px;
-                          padding: 0px 4px; font-size: 10px; font-weight: bold; }
-.btn:hover              { background-color: #2a2a2a; }
-.btn:active             { background-color: #333333; }
+.btn                    { background-color: #333333; color: #ffffff;
+                          border: 1px solid #555555; border-radius: 3px;
+                          padding: 2px 6px; font-size: 12px; font-weight: bold; }
+.btn:hover              { background-color: #444444; }
+.btn:active             { background-color: #555555; }
 .btn-on-green           { background-color: #22c55e; color: #0d0d0d; }
 .btn-on-green:hover     { background-color: #16a34a; }
 .btn-on-amber           { background-color: #f59e0b; color: #0d0d0d; }
@@ -320,7 +320,7 @@ class DisplayOutput:
             ('PRESSURE', 'pressure_kpa',   '{:.1f} kPa'),
             ('pH',       'ph_level',       '{:.2f}'),
             ('CURRENT1', 'current_amps_1', '{:.2f} A'),
-            ('CURRENT2', 'current_amps_2', '{:.2f} A'),
+            ('BATTERY', 'battery_percent', '{:.0f}%'),
         ]:
             row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
             row.set_margin_start(8)
@@ -412,17 +412,17 @@ class DisplayOutput:
         wr = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         wr.set_margin_start(PAD); wr.set_margin_end(PAD); wr.set_margin_bottom(4)
         p.append(wr)
-        wr.append(_flat_btn("/\\ UP",   lambda b: self._emit('winch_up')))
-        wr.append(_flat_btn("\\/ DOWN", lambda b: self._emit('winch_down')))
+        wr.append(_flat_btn("UP",   lambda b: self._emit('winch_up')))
+        wr.append(_flat_btn("DOWN", lambda b: self._emit('winch_down')))
 
         p.append(_hsep())
 
         # MOTORS
         p.append(_section("MOTORS"))
         for la, lb, ca, cb in [
-            ("/\\ ARM",   "\\/ ARM",   "MOTOR_ARM_UP",          "MOTOR_ARM_DOWN"),
-            ("/\\ CLAMP", "\\/ CLAMP", "MOTOR_CLAMP_OPEN",      "MOTOR_CLAMP_CLOSE"),
-            ("/\\ ACT",   "\\/ ACT",   "MOTOR_ACTUATOR_EXTEND", "MOTOR_ACTUATOR_RETRACT"),
+            ("ARM UP",   "ARM DOWN",   "MOTOR_ARM_UP",          "MOTOR_ARM_DOWN"),
+            ("CLAMP OPEN", "CLAMP CLOSE", "MOTOR_CLAMP_OPEN",      "MOTOR_CLAMP_CLOSE"),
+            ("ACT EXTEND",   "ACT RETRACT",   "MOTOR_ACTUATOR_EXTEND", "MOTOR_ACTUATOR_RETRACT"),
         ]:
             row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
             row.set_margin_start(PAD); row.set_margin_end(PAD); row.set_margin_bottom(4)
@@ -679,7 +679,7 @@ class DisplayOutput:
             # Telemetry overlay values
             sensors  = self.current_state.get('telemetry', {}).get('sensors', {})
             defaults = {'pressure_kpa': 0.0, 'ph_level': 7.0,
-                        'current_amps_1': 0.0, 'current_amps_2': 0.0}
+                        'current_amps_1': 0.0, 'battery_percent': 0.0}
             for key, (lbl, fmt) in self.overlay_values.items():
                 lbl.set_label(fmt.format(sensors.get(key, defaults[key])))
 

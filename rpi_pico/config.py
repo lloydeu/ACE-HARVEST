@@ -113,6 +113,12 @@ state = {
     "current_amps_2": 0.0,  # Motor Driver 2 current
     "ph_level": 7.0,
     
+    # Battery monitoring
+    "battery_voltage": 0.0,
+    "battery_current": 0.0,
+    "battery_percent": 0.0,
+    "battery_used_ah": 0.0,
+    
     # Servos (angles 0-180)
     "servo_sg90_deg": 90,
     "servo_mg996_1_deg": 90,
