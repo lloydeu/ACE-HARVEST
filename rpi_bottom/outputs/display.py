@@ -429,7 +429,7 @@ class DisplayOutput:
             row.append(_flat_btn(lb, lambda b, c=cb: self._motor(c)))
 
 
-        self.cut_btn = _flat_btn("[*] CUT OFF", self._toggle_pump)
+        self.cut_btn = _flat_btn("[*] CUT OFF", self._toggle_cut)
         self.cut_btn.set_margin_start(PAD)
         self.cut_btn.set_margin_end(PAD)
         self.cut_btn.set_margin_bottom(4)
