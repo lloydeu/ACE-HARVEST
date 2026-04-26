@@ -418,15 +418,22 @@ class DisplayOutput:
         # MOTORS
         p.append(_section("MOTORS"))
         for la, lb, ca, cb in [
-            ("ARM UP",   "ARM DOWN",   "MOTOR_ARM_UP",          "MOTOR_ARM_DOWN"),
-            ("CLAMP OPEN", "CLAMP CLOSE", "MOTOR_CLAMP_OPEN",      "MOTOR_CLAMP_CLOSE"),
-            ("ACT EXTEND",   "ACT RETRACT",   "MOTOR_ACTUATOR_EXTEND", "MOTOR_ACTUATOR_RETRACT"),
+            # ("ARM UP",   "ARM DOWN",   "MOTOR_ARM_UP",          "MOTOR_ARM_DOWN"),
+            # ("CLAMP OPEN", "CLAMP CLOSE", "MOTOR_CLAMP_OPEN",      "MOTOR_CLAMP_CLOSE"),
+            ("ARM EXTEND",   "ARM RETRACT",   "MOTOR_ACTUATOR_EXTEND", "MOTOR_ACTUATOR_RETRACT"),
         ]:
             row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
             row.set_margin_start(PAD); row.set_margin_end(PAD); row.set_margin_bottom(4)
             p.append(row)
             row.append(_flat_btn(la, lambda b, c=ca: self._motor(c)))
             row.append(_flat_btn(lb, lambda b, c=cb: self._motor(c)))
+
+
+        self.cut_btn = _flat_btn("[*] CUT OFF", self._toggle_pump)
+        self.cut_btn.set_margin_start(PAD)
+        self.cut_btn.set_margin_end(PAD)
+        self.cut_btn.set_margin_bottom(4)
+        p.append(self.cut_btn)
 
         self.pump_btn = _flat_btn("[*] PUMP OFF", self._toggle_pump)
         self.pump_btn.set_margin_start(PAD)
@@ -452,7 +459,7 @@ class DisplayOutput:
         PAD = 6
         p.append(_section("SERVOS"))
         for name, idx in [
-            ("SG90",    0),
+            # ("SG90",    0),
             ("MG996-1", 1), ("MG996-2", 2), ("MG996-3", 3),
             ("MG996-4", 4), ("MG996-5", 5), ("MG996-6", 6),
         ]:
@@ -493,6 +500,17 @@ class DisplayOutput:
             btn.set_label("[*] PUMP OFF")
             _remove_class(btn, 'btn-on-green')
         self._emit('motor_cmd', cmd='MOTOR_PUMP_TOGGLE')
+
+    def _toggle_cut(self, btn):
+        self._cut_on = not self._pump_on
+        if self._cut_on:
+            btn.set_label("[*] CUT ON")
+            _add_class(btn, 'btn-on-green')
+        else:
+            btn.set_label("[*] CUT OFF")
+            _remove_class(btn, 'btn-on-green')
+        self._emit('motor_cmd', cmd='MOTOR_CUT_TOGGLE')
+
 
     def _toggle_lights(self, btn):
         self._lights_on = not self._lights_on

@@ -187,6 +187,8 @@ class TopController:
             'MOTOR_ACTUATOR_EXTEND': ('linear_actuator', 50),
             'MOTOR_ACTUATOR_RETRACT': ('linear_actuator', -50),
             'MOTOR_PUMP_TOGGLE': ('vacuum_pump', 100 if not state.get('pump_on', False) else 0),
+            'MOTOR_CUT_TOGGLE': ('worm_gear_arm', 100 if not state.get('pump_on', False) else 0),
+            
         }
         
         if cmd in motor_map:
