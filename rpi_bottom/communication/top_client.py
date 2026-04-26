@@ -10,6 +10,8 @@ class TopClient:
         self.port = port
         self.sock = None
         self.connected = False
+        self._recv_buffer = ''
+        self._recv_queue = []
     
     def connect(self):
         """Connect to RPi Top"""
@@ -42,13 +44,31 @@ class TopClient:
         """Receive data from RPi Top"""
         if not self.connected:
             return None
+
+        # Return any already-parsed messages first
+        if self._recv_queue:
+            return self._recv_queue.pop(0)
+
         try:
-            data = self.sock.recv(4096).decode('utf-8').strip()
+            data = self.sock.recv(4096).decode('utf-8')
             if data:
-                return json.loads(data)
+                self._recv_buffer += data
+                lines = self._recv_buffer.split('\n')
+                self._recv_buffer = lines.pop()  # Keep incomplete tail
+                for line in lines:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        self._recv_queue.append(json.loads(line))
+                    except Exception:
+                        pass
+
+                if self._recv_queue:
+                    return self._recv_queue.pop(0)
         except socket.timeout:
             return None
-        except:
+        except Exception:
             self.connected = False
         return None
     

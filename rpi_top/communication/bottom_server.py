@@ -12,6 +12,7 @@ class BottomServer:
         self.client_sock = None
         self.running = False
         self.listen_thread = None
+        self._recv_buffer = ''
     
     def start(self):
         """Start TCP server"""
@@ -66,10 +67,21 @@ class BottomServer:
         """Receive command from Bottom"""
         if not self.client_sock:
             return None
+
         try:
-            data = self.client_sock.recv(4096).decode('utf-8').strip()
+            data = self.client_sock.recv(4096).decode('utf-8')
             if data:
-                return json.loads(data)
+                self._recv_buffer += data
+                lines = self._recv_buffer.split('\n')
+                self._recv_buffer = lines.pop()  # Keep incomplete tail
+                for line in lines:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        return json.loads(line)
+                    except Exception:
+                        pass
         except socket.timeout:
             return None
         except Exception:
