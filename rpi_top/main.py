@@ -182,6 +182,7 @@ class TopController:
         motor_map = {
             'MOTOR_ARM_UP': ('worm_gear_arm', 50),
             'MOTOR_ARM_DOWN': ('worm_gear_arm', -50),
+            'MOTOR_ARM_STOP': ('worm_gear_arm', 0),
             'MOTOR_VACUUM_ON': ('vacuum_pump', 100),
             'MOTOR_VACUUM_OFF': ('vacuum_pump', 0),
             'MOTOR_ACTUATOR_EXTEND': ('linear_actuator', 50),

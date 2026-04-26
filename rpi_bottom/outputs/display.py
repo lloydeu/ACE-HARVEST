@@ -10,6 +10,7 @@ Install (once):
          gstreamer1.0-libav gstreamer1.0-gtk3
 """
 
+import cmd
 import threading
 import time
 
@@ -416,17 +417,45 @@ class DisplayOutput:
         p.append(_hsep())
 
         # MOTORS
+        
+       # MOTORS
         p.append(_section("MOTORS"))
-        for la, lb, ca, cb in [
-            # ("ARM UP",   "ARM DOWN",   "MOTOR_ARM_UP",          "MOTOR_ARM_DOWN"),
-            # ("CLAMP OPEN", "CLAMP CLOSE", "MOTOR_CLAMP_OPEN",      "MOTOR_CLAMP_CLOSE"),
-            ("ARM EXTEND",   "ARM RETRACT",   "MOTOR_ACTUATOR_EXTEND", "MOTOR_ACTUATOR_RETRACT"),
-        ]:
+        # Format: (Label A, Label B, Command A, Command B, Stop Command)
+        motor_groups = [
+            ("ARM EXTEND", "ARM RETRACT", "MOTOR_ACTUATOR_EXTEND", "MOTOR_ACTUATOR_RETRACT", "MOTOR_ACTUATOR_STOP"),
+            #("ARM UP", "ARM DOWN", "MOTOR_ARM_UP", "MOTOR_ARM_DOWN", "MOTOR_ARM_STOP"),
+        ]
+
+        for la, lb, ca, cb, stop_cmd in motor_groups:
             row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
             row.set_margin_start(PAD); row.set_margin_end(PAD); row.set_margin_bottom(4)
             p.append(row)
-            row.append(_flat_btn(la, lambda b, c=ca: self._motor(c)))
-            row.append(_flat_btn(lb, lambda b, c=cb: self._motor(c)))
+
+            for label, move_cmd in [(la, ca), (lb, cb)]:
+                btn = _flat_btn(label, None) # No 'clicked' callback
+                
+                gesture = Gtk.GestureClick()
+                # On Press: Send the specific Move command (e.g., MOTOR_ARM_UP)
+                gesture.connect("pressed", lambda g, n, x, y, c=move_cmd: self._motor_hold(c, True))
+                # On Release: Send the generic Stop command for that motor (e.g., MOTOR_ARM_STOP)
+                gesture.connect("released", lambda g, n, x, y, s=stop_cmd: self._motor_hold(s, False))
+                # Safety: also stop if user drags finger/mouse off the button
+                gesture.connect("unpaired-release", lambda g, x, y, b, s_btn, s=stop_cmd: self._motor_hold(s, False))
+
+                btn.add_controller(gesture)
+                row.append(btn)
+
+        # p.append(_section("MOTORS"))
+        #   for la, lb, ca, cb in [
+            # ("ARM UP",   "ARM DOWN",   "MOTOR_ARM_UP",          "MOTOR_ARM_DOWN"),
+            # ("CLAMP OPEN", "CLAMP CLOSE", "MOTOR_CLAMP_OPEN",      "MOTOR_CLAMP_CLOSE"),
+            # ("ARM EXTEND",   "ARM RETRACT",   "MOTOR_ACTUATOR_EXTEND", "MOTOR_ACTUATOR_RETRACT"),
+        # ]:
+           # row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+            # row.set_margin_start(PAD); row.set_margin_end(PAD); row.set_margin_bottom(4)
+           #  p.append(row)
+           # row.append(_flat_btn(la, lambda b, c=ca: self._motor(c)))
+           # row.append(_flat_btn(lb, lambda b, c=cb: self._motor(c)))
 
 
         self.cut_btn = _flat_btn("[*] CUT OFF", self._toggle_cut)
@@ -557,6 +586,9 @@ class DisplayOutput:
     def toggle_overlay(self):
         self._toggle_overlay(self.ovrl_btn)
 
+    def _motor_hold(self, cmd):
+    
+        self._emit('motor_cmd', cmd=cmd)
     # ── Exit ──────────────────────────────────────────────────────────────
 
     def _on_exit_tap(self, btn):
