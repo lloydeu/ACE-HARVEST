@@ -454,6 +454,7 @@ class DisplayOutput:
         self.valve_btn = _flat_btn("[V] VALVE", self._toggle_valve)
         rr.append(self.valve_btn)
 
+"""
     def _fill_servos(self, p):
         PAD = 6
         p.append(_section("SERVOS"))
@@ -478,6 +479,37 @@ class DisplayOutput:
                 _add_class(b, 'btn')
                 b.connect('clicked', lambda btn, i=idx, a=angle: self._servo(i, a))
                 row.append(b)
+
+"""
+def _fill_servos(self, p):
+    PAD = 6
+    p.append(_section("SERVOS"))
+    for name, idx in [
+        ("MG996-1", 1), ("MG996-2", 2), ("MG996-3", 3),
+        ("MG996-4", 4), ("MG996-5", 5),
+    ]:
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        row.set_margin_start(PAD); row.set_margin_end(PAD); row.set_margin_bottom(3)
+        p.append(row)
+
+        name_lbl = Gtk.Label(label=name)
+        name_lbl.set_size_request(56, -1)
+        name_lbl.set_xalign(0)
+        _add_class(name_lbl, 'overlay-label')
+        row.append(name_lbl)
+
+        adj = Gtk.Adjustment(value=90, lower=0, upper=180, step_increment=1, page_increment=10)
+        slider = Gtk.Scale(orientation=Gtk.Orientation.HORIZONTAL, adjustment=adj)
+        slider.set_hexpand(True)
+        slider.set_digits(0)
+        slider.add_mark(0,   Gtk.PositionType.BOTTOM, "0")
+        slider.add_mark(45,  Gtk.PositionType.BOTTOM, "45")
+        slider.add_mark(90,  Gtk.PositionType.BOTTOM, "90")
+        slider.add_mark(135, Gtk.PositionType.BOTTOM, "135")
+        slider.add_mark(180, Gtk.PositionType.BOTTOM, "180")
+        _add_class(slider, 'servo-slider')
+        slider.connect('value-changed', lambda s, i=idx: self._servo(i, int(s.get_value())))
+        row.append(slider)
 
     # ── Button callbacks ──────────────────────────────────────────────────
 
