@@ -33,10 +33,12 @@ class BottomController:
         self.winch = WinchOutput()
         
         # Initialize communication
+        
         self.top_client = TopClient(
             host=config.get('rpi_top_ip'),
             port=config.get('rpi_top_port')
         )
+        
         self.sms = Air780ESMS(
             port=config.get('air780e_port'),
             phone=config.get('alert_phone')
@@ -249,6 +251,7 @@ class BottomController:
         print("="*70)
         
         # Connect to Top
+        
         if self.top_client.connect():
             state['top_connected'] = True
             print("Connected to RPi Top")
@@ -292,7 +295,7 @@ class BottomController:
         self.winch.cleanup()
         self.buttons.cleanup()
         self.display.cleanup()
-        self.top_client.close()
+        # self.top_client.close()
         self.sms.close()
         
         print("Cleanup complete")

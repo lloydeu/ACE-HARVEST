@@ -157,6 +157,7 @@ class DisplayOutput:
         self._lights_on = False
         self._valve_on  = False
         self._pump_on   = False
+        self._cut_on   = False
 
         # exit confirm
         self._exit_armed = False
@@ -425,18 +426,18 @@ class DisplayOutput:
         p.append(_section("MOTORS"))
         # Format: (Label A, Label B, Command A, Command B, Stop Command)
         motor_groups = [
-            ("ARM EXTEND", "ARM RETRACT", "MOTOR_ACTUATOR_EXTEND", "MOTOR_ACTUATOR_RETRACT", "MOTOR_ACTUATOR_STOP"),
+            ("ARM EXTEND", "ARM RETRACT", "ARM STOP", "MOTOR_ACTUATOR_EXTEND", "MOTOR_ACTUATOR_RETRACT", "MOTOR_ACTUATOR_STOP"),
             #("ARM UP", "ARM DOWN", "MOTOR_ARM_UP", "MOTOR_ARM_DOWN", "MOTOR_ARM_STOP"),
         ]
 
-        for la, lb, ca, cb, stop_cmd in motor_groups:
+        for la, lb, lc, ca, cb, stop_cmd in motor_groups:
             row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
             row.set_margin_start(PAD); row.set_margin_end(PAD); row.set_margin_bottom(4)
             p.append(row)
 
-            for label, move_cmd in [(la, ca), (lb, cb)]:
-                btn = _flat_btn(label, None) # No 'clicked' callback
-                
+            for label, move_cmd in [(la, ca), (lb, cb),(lc, stop_cmd)]:
+                btn = _flat_btn(label, lambda b, c = move_cmd:self._motor(c)) # No 'clicked' callback
+                """
                 gesture = Gtk.GestureClick()
                 # On Press: Send the specific Move command (e.g., MOTOR_ARM_UP)
                 gesture.connect("pressed", lambda g, n, x, y, c=move_cmd: self._motor_hold(c, True))
@@ -446,6 +447,7 @@ class DisplayOutput:
                 gesture.connect("unpaired-release", lambda g, x, y, b, s_btn, s=stop_cmd: self._motor_hold(s, False))
 
                 btn.add_controller(gesture)
+                """
                 row.append(btn)
 
         # p.append(_section("MOTORS"))
@@ -484,20 +486,16 @@ class DisplayOutput:
         self.lights_btn = _flat_btn("LIGHTS OFF", self._toggle_lights)
         rr.append(self.lights_btn)
 
-        self.valve_btn = _flat_btn("VALVE OFF", self._toggle_valve)
+        self.valve_btn = _flat_btn("VALVE CLOSED", self._toggle_valve)
         rr.append(self.valve_btn)
-
-        
 
     def _fill_servos(self, p):
         PAD = 6
         p.append(_section("SERVOS"))
         for name, idx in [
-            # ("SG90",    0),
-            ("MG996-1", 1), ("MG996-2", 2), ("MG996-3", 3),
-            ("MG996-4", 4), ("MG996-5", 5), ("MG996-6", 6),
+            ("Base", 1), ("Shoulder", 2), ("Elbow", 3), ("Wrist", 4), ("Wrist Roll", 5),
         ]:
-            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
             row.set_margin_start(PAD); row.set_margin_end(PAD); row.set_margin_bottom(3)
             p.append(row)
 
@@ -507,12 +505,26 @@ class DisplayOutput:
             _add_class(name_lbl, 'overlay-label')
             row.append(name_lbl)
 
-            for angle, lbl in [(0,"0"),(45,"45"),(90,"90"),(135,"135"),(180,"180")]:
-                b = Gtk.Button(label=lbl)
-                b.set_hexpand(True)
-                _add_class(b, 'btn')
-                b.connect('clicked', lambda btn, i=idx, a=angle: self._servo(i, a))
-                row.append(b)
+            adj = Gtk.Adjustment(value=90, lower=10, upper=170, step_increment=1, page_increment=10)
+            
+            minus_btn = Gtk.Button(label = "-")
+            minus_btn.connect('clicked', self.on_decrement, adj)
+            slider = Gtk.Scale(orientation=Gtk.Orientation.HORIZONTAL, adjustment=adj)
+            slider.set_hexpand(True)
+            slider.set_digits(0)
+            slider.add_mark(10, Gtk.PositionType.BOTTOM, "10")
+            slider.add_mark(45, Gtk.PositionType.BOTTOM, "45")
+            slider.add_mark(90, Gtk.PositionType.BOTTOM, "90")
+            slider.add_mark(135, Gtk.PositionType.BOTTOM, "135")
+            slider.add_mark(170, Gtk.PositionType.BOTTOM, "170")
+            add_btn = Gtk.Button(label = "+")
+            add_btn.connect('clicked', self.on_increment, adj)
+
+            _add_class(slider, 'servo-slider')
+            slider.connect('value-changed', lambda s, i=idx: self._servo(i, int(s.get_value())))
+            row.append(minus_btn)
+            row.append(slider)
+            row.append(add_btn)
 
     # ── Button callbacks ──────────────────────────────────────────────────
 
@@ -536,7 +548,7 @@ class DisplayOutput:
         self._emit('motor_cmd', cmd='MOTOR_PUMP_TOGGLE')
 
     def _toggle_cut(self, btn):
-        self._cut_on = not self._pump_on
+        self._cut_on = not self._cut_on
         if self._cut_on:
             btn.set_label("[*] CUT ON")
             _add_class(btn, 'btn-on-green')
@@ -559,7 +571,7 @@ class DisplayOutput:
 
     def _toggle_valve(self, btn):
         self._valve_on = not self._valve_on
-        btn.set_label("SOLENOID ON" if self._valve_on else "SOLENOID OFF")
+        btn.set_label("VALVE OPEN" if self._valve_on else "VALVE CLOSED")
         if self._valve_on:
             _add_class(btn, 'btn-on-cyan')
         else:
@@ -593,10 +605,24 @@ class DisplayOutput:
     def toggle_overlay(self):
         self._toggle_overlay(self.ovrl_btn)
 
-    def _motor_hold(self, cmd):
+    def _motor_hold(self, cmd, active):
     
         self._emit('motor_cmd', cmd=cmd)
+
+    def on_decrement(self, btn, adjustment):
+        _add_class(btn, 'btn-on-amber')
+        new_val = adjustment.get_value() - adjustment.get_step_increment()
+        adjustment.set_value(max(new_val, adjustment.get_lower()))
+        _remove_class(btn, 'btn-on-amber')    
+    
+    def on_increment(self, btn, adjustment):
+        _add_class(btn, 'btn-on-amber')
+        new_val = adjustment.get_value() + adjustment.get_step_increment()
+        adjustment.set_value(min(new_val, adjustment.get_upper()))    
+        _remove_class(btn, 'btn-on-amber')
+   
     # ── Exit ──────────────────────────────────────────────────────────────
+
 
     def _on_exit_tap(self, btn):
         if self._exit_armed:

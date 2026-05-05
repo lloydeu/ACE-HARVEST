@@ -187,8 +187,9 @@ class TopController:
             'MOTOR_VACUUM_OFF': ('vacuum_pump', 0),
             'MOTOR_ACTUATOR_EXTEND': ('linear_actuator', 50),
             'MOTOR_ACTUATOR_RETRACT': ('linear_actuator', -50),
+            'MOTOR_ACTUATOR_STOP': ('linear_actuator', 0),
             'MOTOR_PUMP_TOGGLE': ('vacuum_pump', 100 if not state.get('pump_on', False) else 0),
-            'MOTOR_CUT_TOGGLE': ('worm_gear_arm', 100 if not state.get('pump_on', False) else 0),
+            'MOTOR_CUT_TOGGLE': ('worm_gear_arm', 100 if not state.get('cut_on', False) else 0),
             
         }
         
@@ -221,7 +222,7 @@ class TopController:
             print(f"  Servo: {servo_idx} → {servo_id} @ {angle}°")
         else:
             print(f"  ⚠️  Unknown servo index: {servo_idx}")
-    
+    s
     def handle_relay_command(self, cmd, relay_on):
         """Translate relay commands to Pico commands"""
         relay_map = {
