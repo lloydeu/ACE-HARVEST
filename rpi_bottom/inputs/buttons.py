@@ -11,7 +11,6 @@ class ButtonInput:
         GPIO.setwarnings(False)
         
         # Setup all buttons with pullup
-        GPIO.setup(PIN_EMERGENCY_STOP, GPIO.IN, pull_up_down=GPIO.PUD_UP)
         GPIO.setup(PIN_BUTTON_START, GPIO.IN, pull_up_down=GPIO.PUD_UP)
         GPIO.setup(PIN_BUTTON_STOP, GPIO.IN, pull_up_down=GPIO.PUD_UP)
         GPIO.setup(PIN_BUTTON_WINCH_UP, GPIO.IN, pull_up_down=GPIO.PUD_UP)
@@ -25,14 +24,6 @@ class ButtonInput:
         """Read all buttons, return list of events"""
         events = []
         current_time = time.time()
-        
-        # Check emergency stop (continuous check)
-        if GPIO.input(PIN_EMERGENCY_STOP) == GPIO.LOW:
-            if not self.button_states.get('emergency_stop', False):
-                self.button_states['emergency_stop'] = True
-                events.append({'type': 'emergency_stop'})
-        else:
-            self.button_states['emergency_stop'] = False
         
         # Check other buttons (edge detect)
         buttons = [

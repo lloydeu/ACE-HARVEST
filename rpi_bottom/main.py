@@ -98,19 +98,8 @@ class BottomController:
                 
                 event_type = event.get('type')
                 
-                # Emergency stop
-                if event_type == 'emergency_stop':
-                    print("EMERGENCY STOP")
-                    state['emergency_stop'] = True
-                    state['running'] = False
-                    self.winch.stop()
-                    # Send to Top
-                    self.top_client.send_command({'type': 'emergency_stop'})
-                    # Send SMS
-                    self.sms.send_alert('EMERGENCY_STOP', 'Emergency stop activated!')
-                
                 # Start button
-                elif event_type == 'button_start':
+                if event_type == 'button_start':
                     print("Start")
                     state['running'] = True
                 

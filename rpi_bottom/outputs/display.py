@@ -746,12 +746,7 @@ class DisplayOutput:
             self.clock_lbl.set_label(time.strftime("%H:%M:%S"))
 
             # Status badge
-            if self.current_state.get('emergency_stop'):
-                self.status_lbl.set_label("[!!] E-STOP")
-                self.status_lbl.get_style_context().remove_class('status-idle')
-                self.status_lbl.get_style_context().remove_class('status-active')
-                self.status_lbl.get_style_context().add_class('status-estop')
-            elif self.current_state.get('running'):
+            if self.current_state.get('running'):
                 self.status_lbl.set_label("[*] ACTIVE")
                 self.status_lbl.get_style_context().remove_class('status-idle')
                 self.status_lbl.get_style_context().remove_class('status-estop')

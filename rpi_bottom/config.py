@@ -6,7 +6,6 @@ import os
 # GPIO PIN ASSIGNMENTS
 # ========================================
 
-PIN_EMERGENCY_STOP = 17
 PIN_BUTTON_START = 27
 PIN_BUTTON_STOP = 22
 PIN_BUTTON_WINCH_UP = 23
@@ -94,7 +93,6 @@ class Config:
 state = {
     # System status
     'running': False,
-    'emergency_stop': False,
     
     # Inputs
     'joystick_x': 0.0,

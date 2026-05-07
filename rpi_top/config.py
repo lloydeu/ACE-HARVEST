@@ -53,7 +53,6 @@ state = {
     'pico_connected': False,
     'camera_streaming': False,
     'bottom_server_running': False,
-    'emergency_stop': False,
     'sensors': {},
     'camera': {},
     'last_update': 0,

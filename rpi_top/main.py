@@ -131,11 +131,6 @@ class TopController:
                     relay_on = event.get('state')
                     self.handle_relay_command(cmd, relay_on)
                 
-                elif event_type == 'emergency_stop':
-                    print("🚨 EMERGENCY STOP from Bottom")
-                    self.pico.stop_all()
-                    state['emergency_stop'] = True
-                
                 # REMOVED: joystick handler - no actionable logic in Top
                 # Joystick input flows through Bottom and is converted to motor commands there
                 
